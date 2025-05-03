@@ -1,0 +1,248 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Heading,
+  SimpleGrid,
+  Flex,
+  Text,
+  Icon,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  Button,
+  VStack,
+  useToast
+} from '@chakra-ui/react';
+import { 
+  FaFolder, 
+  FaSearch, 
+  FaGraduationCap,
+  FaPlus,
+  FaBookOpen,
+  FaChalkboard
+} from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
+
+// Sample data for classes
+const sampleClasses = [
+  {
+    id: 1,
+    name: 'Mathematics 101',
+    instructor: 'Dr. John Smith',
+    students: 32,
+    gradingPeriods: ['Midterm', 'Final'],
+    color: '#4299E1' // blue.400
+  },
+  {
+    id: 2,
+    name: 'Introduction to Physics',
+    instructor: 'Dr. Maria Rodriguez',
+    students: 28,
+    gradingPeriods: ['Quiz 1', 'Midterm', 'Quiz 2', 'Final'],
+    color: '#48BB78' // green.400
+  },
+  {
+    id: 3,
+    name: 'World History',
+    instructor: 'Prof. James Wilson',
+    students: 45,
+    gradingPeriods: ['Assignment 1', 'Midterm', 'Assignment 2', 'Final'],
+    color: '#9F7AEA' // purple.400
+  },
+  {
+    id: 4,
+    name: 'English Literature',
+    instructor: 'Dr. Sarah Johnson',
+    students: 36,
+    gradingPeriods: ['Essay 1', 'Midterm', 'Essay 2', 'Final'],
+    color: '#ED8936' // orange.400
+  },
+  {
+    id: 5,
+    name: 'Computer Science Fundamentals',
+    instructor: 'Prof. Robert Lee',
+    students: 29,
+    gradingPeriods: ['Project 1', 'Midterm', 'Project 2', 'Final'],
+    color: '#E53E3E' // red.400
+  },
+  {
+    id: 6,
+    name: 'Chemistry Basics',
+    instructor: 'Dr. Emily Chen',
+    students: 24,
+    gradingPeriods: ['Lab 1', 'Midterm', 'Lab 2', 'Final'],
+    color: '#38B2AC' // teal.400
+  }
+];
+
+const Grades = () => {
+  const [classes, setClasses] = useState(() => {
+    const savedClasses = localStorage.getItem('gradeClasses');
+    return savedClasses ? JSON.parse(savedClasses) : sampleClasses;
+  });
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const navigate = useNavigate();
+  const toast = useToast();
+  
+  // Save classes to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('gradeClasses', JSON.stringify(classes));
+  }, [classes]);
+  
+  // Filter classes based on search query
+  const filteredClasses = classes.filter(classItem => 
+    classItem.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    classItem.instructor.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  
+  // Handle folder click to navigate to class details
+  const handleClassClick = (classId) => {
+    // For now, just show a toast. Later this would navigate to a class detail page
+    toast({
+      title: 'Class Selected',
+      description: `You've selected class ID: ${classId}`,
+      status: 'info',
+      duration: 2000,
+      isClosable: true
+    });
+    // Future navigation: navigate(`/grades/class/${classId}`);
+  };
+  
+  // Handle navigation to other pages
+  const handleCreateCourse = () => {
+    navigate('/create-course');
+  };
+  
+  const handleCreateClass = () => {
+    navigate('/create-class');
+  };
+
+  return (
+    <Box pl="270px" pt="100px" pr="30px" pb="50px">
+      <Flex justifyContent="space-between" alignItems="center" mb={6}>
+        <Heading as="h1" size="xl" color="#640101" fontWeight="bold">
+          <Flex alignItems="center">
+            <Icon as={FaGraduationCap} mr={3} />
+            Manage Classes
+          </Flex>
+        </Heading>
+        
+        <Flex gap={3}>
+          <Button
+            leftIcon={<FaBookOpen />}
+            colorScheme="gray"
+            variant="outline"
+            onClick={handleCreateCourse}
+          >
+            Create Course
+          </Button>
+          <Button
+            leftIcon={<FaChalkboard />}
+            colorScheme="gray"
+            variant="outline"
+            onClick={handleCreateClass}
+          >
+            Create Class
+          </Button>
+          <Button
+            leftIcon={<FaPlus />}
+            colorScheme="red"
+            variant="solid"
+            bg="#640101"
+            color="white"
+            _hover={{ bg: "#450101" }}
+            size="md"
+          >
+            Add Class
+          </Button>
+        </Flex>
+      </Flex>
+      
+      <Text fontSize="md" color="gray.600" mb={5}>
+        Select a class to view and manage student grades
+      </Text>
+      
+      <Flex mb={8}>
+        <InputGroup maxW="500px">
+          <InputLeftElement pointerEvents="none">
+            <Icon as={FaSearch} color="gray.400" />
+          </InputLeftElement>
+          <Input
+            placeholder="Search classes or instructors"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            bg="white"
+            borderColor="gray.300"
+            size="md"
+          />
+        </InputGroup>
+        
+        <Box ml={4}>
+          <Button variant="outline" borderColor="gray.300">
+            Sort By: Name
+          </Button>
+        </Box>
+      </Flex>
+      
+      <SimpleGrid columns={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing={6}>
+        {filteredClasses.map(classItem => (
+          <Box
+            key={classItem.id}
+            bg="white"
+            borderRadius="md"
+            overflow="hidden"
+            boxShadow="sm"
+            transition="all 0.2s"
+            cursor="pointer"
+            onClick={() => handleClassClick(classItem.id)}
+            _hover={{
+              transform: 'translateY(-2px)',
+              boxShadow: 'md',
+            }}
+            position="relative"
+          >
+            <Box
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              height="5px"
+              bg={classItem.color}
+            />
+            <Box p={4}>
+              <Flex mb={2} alignItems="center">
+                <Icon as={FaFolder} fontSize="xl" color={classItem.color} mr={2} />
+                <Text fontWeight="bold" fontSize="lg" noOfLines={1}>
+                  {classItem.name}
+                </Text>
+              </Flex>
+              
+              <VStack align="stretch" spacing={1} mt={3}>
+                <Text fontSize="sm" color="gray.600">
+                  Instructor: {classItem.instructor}
+                </Text>
+                <Text fontSize="sm" color="gray.600">
+                  Students: {classItem.students}
+                </Text>
+                <Text fontSize="sm" color="gray.600">
+                  Grading Periods: {classItem.gradingPeriods.length}
+                </Text>
+              </VStack>
+            </Box>
+          </Box>
+        ))}
+      </SimpleGrid>
+      
+      {filteredClasses.length === 0 && (
+        <Box textAlign="center" py={10}>
+          <Text fontSize="lg" color="gray.500">
+            No classes found. Try adjusting your search or add a new class.
+          </Text>
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+export default Grades; 

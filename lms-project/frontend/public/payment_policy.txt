@@ -1,0 +1,114 @@
+PAYMENT POLICY
+Last Updated: March 3, 2025
+
+1. INTRODUCTION
+
+This Payment Policy outlines the terms and conditions for payments made to Dashboarder LMS ("we," "our," or "us") for courses, subscriptions, and other educational services offered through our learning management system. By making a payment to us, you agree to comply with and be bound by this Payment Policy.
+
+2. PAYMENT METHODS
+
+2.1 Accepted Payment Methods
+We accept the following payment methods:
+- Credit cards (Visa, MasterCard, American Express, Discover)
+- Debit cards
+- PayPal
+- Bank transfers (for institutional accounts only)
+- Other payment methods as specified at the time of checkout
+
+2.2 Currency
+All prices are listed in USD unless otherwise specified. For users outside the United States, the payment will be converted to your local currency at the current exchange rate determined by your payment provider.
+
+3. SUBSCRIPTION PAYMENTS
+
+3.1 Subscription Plans
+We offer various subscription plans that provide access to our platform and educational content. The specific features included in each subscription plan are described on our website.
+
+3.2 Billing Cycle
+Subscription fees are billed at the beginning of each billing cycle (monthly, quarterly, or annually, depending on the selected plan). The initial payment is due at the time of subscription.
+
+3.3 Automatic Renewal
+Subscriptions automatically renew at the end of each billing cycle unless cancelled by you at least 24 hours before the end of the current billing period. By subscribing, you authorize us to charge your payment method for the subscription fee at the beginning of each billing cycle.
+
+3.4 Subscription Changes
+You may upgrade, downgrade, or change your subscription plan at any time. If you upgrade your subscription, the new rate will be charged immediately, and you will receive a prorated credit for the unused portion of your current subscription. If you downgrade your subscription, the new rate will take effect at the beginning of the next billing cycle.
+
+4. COURSE PAYMENTS
+
+4.1 One-Time Purchases
+Individual courses may be available for one-time purchase. The price for each course is displayed on the course description page.
+
+4.2 Course Bundles
+We may offer bundles of courses at discounted rates. The specific courses included in each bundle and the bundle price are displayed on our website.
+
+4.3 Payment Confirmation
+Upon successful payment for a course or bundle, you will receive an email confirmation with details of your purchase and instructions for accessing the course content.
+
+5. INSTITUTIONAL PAYMENTS
+
+5.1 Bulk Purchases
+Educational institutions, businesses, and organizations may purchase multiple licenses or subscriptions for their members. Special pricing may be available for bulk purchases.
+
+5.2 Invoicing
+Institutional customers may request to be invoiced for their purchases. Payment terms for invoiced customers are net 30 days unless otherwise specified in a separate agreement.
+
+5.3 Purchase Orders
+We accept purchase orders from educational institutions and government agencies. Purchase orders must be submitted to billing@dashboarder-lms.com for approval before access is granted.
+
+6. PRICING AND TAXES
+
+6.1 Price Changes
+We reserve the right to change our prices at any time. Any price changes will not affect current subscriptions until the next renewal date.
+
+6.2 Taxes
+Applicable sales tax, VAT, or GST will be added to your payment based on your location and local tax laws. Tax rates are calculated at the time of purchase.
+
+6.3 Price Errors
+In the event of a pricing error on our website, we reserve the right to cancel any orders placed at the incorrect price.
+
+7. REFUNDS AND CANCELLATIONS
+
+7.1 Subscription Cancellations
+You may cancel your subscription at any time through your account settings or by contacting our customer support. Cancellation will take effect at the end of the current billing period, and no refunds will be provided for the unused portion of the current billing period.
+
+7.2 Course Refunds
+For individual course purchases, we offer a 30-day money-back guarantee. If you are not satisfied with a course, you may request a refund within 30 days of purchase by contacting our customer support. Refund eligibility may be subject to course completion percentage and other factors as specified in our Refund Policy.
+
+7.3 No Refunds for Certain Products
+The following are not eligible for refunds:
+- Digital downloads after the content has been accessed
+- Courses or subscriptions purchased with promotional discounts of 50% or more
+- Courses or subscriptions that explicitly state "non-refundable" in their description
+
+7.4 Refund Process
+Approved refunds will be processed using the original payment method. Refunds may take 5-10 business days to appear on your statement, depending on your payment provider.
+
+8. PAYMENT SECURITY
+
+8.1 Data Security
+We implement appropriate technical and organizational measures to protect your payment information. We do not store complete credit card information on our servers. All payment processing is handled by secure, PCI-compliant payment processors.
+
+8.2 Fraud Prevention
+We may use fraud detection and prevention tools to verify payments and protect against fraudulent transactions. In some cases, we may request additional verification or decline a payment if it appears suspicious.
+
+9. PAYMENT DISPUTES
+
+9.1 Billing Errors
+If you believe there has been an error in billing, please contact our customer support within 30 days of the charge. We will investigate the issue and provide a resolution as quickly as possible.
+
+9.2 Chargebacks
+Before initiating a chargeback with your payment provider, please contact our customer support to resolve any issues. Unauthorized chargebacks may result in suspension of your account and additional fees.
+
+10. CHANGES TO THIS POLICY
+
+We reserve the right to modify this Payment Policy at any time. Changes will be effective immediately upon posting on our website. We will notify subscribers of material changes via email. Your continued use of our services after changes to this policy constitutes acceptance of the updated terms.
+
+11. CONTACT INFORMATION
+
+If you have any questions about this Payment Policy, please contact us at:
+
+Email: billing@dashboarder-lms.com
+Phone: [Your Phone Number]
+Mail: Dashboarder LMS
+      [Your Address]
+      [City, State, ZIP]
+      [Country]

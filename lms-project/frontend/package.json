@@ -1,0 +1,90 @@
+{
+  "name": "dashboarder-lms",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@chakra-ui/react": "^2.8.1",
+    "@codemirror/lang-javascript": "^6.2.3",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@fontsource/bree-serif": "^5.1.1",
+    "@fontsource/lora": "^5.1.1",
+    "@fontsource/montserrat-alternates": "^5.1.1",
+    "@fontsource/nunito": "^5.1.1",
+    "@mui/icons-material": "^6.4.4",
+    "@mui/material": "^6.4.4",
+    "@types/three": "^0.173.0",
+    "@uiw/codemirror-theme-dracula": "^4.23.8",
+    "@uiw/react-codemirror": "^4.23.8",
+    "agora-rtc-sdk-ng": "^4.23.2",
+    "axios": "^1.8.2",
+    "css-loader": "^7.1.2",
+    "d3": "^7.9.0",
+    "d3-geo": "^3.1.1",
+    "d3-scale": "^4.0.2",
+    "date-fns": "^4.1.0",
+    "emoji-picker-react": "^4.12.0",
+    "express": "^4.18.2",
+    "framer-motion": "^10.18.0",
+    "html-webpack-plugin": "^5.6.3",
+    "lottie-react": "^2.4.1",
+    "monaco-editor": "^0.52.2",
+    "react": "^18.2.0",
+    "react-color": "^2.19.3",
+    "react-dom": "^18.2.0",
+    "react-globe.gl": "^2.31.3",
+    "react-icons": "^5.4.0",
+    "react-monaco-editor": "^0.58.0",
+    "react-router-dom": "^6.15.0",
+    "react-simple-maps": "^3.0.0",
+    "recharts": "^2.15.1",
+    "simple-icons": "^14.7.0",
+    "simple-peer": "^9.11.1",
+    "style-loader": "^4.0.0",
+    "three": "^0.173.0",
+    "topojson-client": "^3.1.0",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^4.15.1",
+    "world-atlas": "^2.0.2"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "webpack serve --mode development --open",
+    "build": "webpack --mode production",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "netlify-deploy": "npm run build && netlify deploy --prod",
+    "vercel-build": "npm run build"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.9",
+    "@babel/preset-env": "^7.26.9",
+    "@babel/preset-react": "^7.26.3",
+    "@pmmmwh/react-refresh-webpack-plugin": "^0.5.15",
+    "babel-loader": "^9.2.1",
+    "file-loader": "^6.2.0",
+    "react-refresh": "^0.16.0",
+    "react-scripts": "^5.0.1",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^4.15.1"
+  }
+}

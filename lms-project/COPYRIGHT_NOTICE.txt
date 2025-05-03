@@ -1,0 +1,25 @@
+DASHBOARDER LMS - COPYRIGHT NOTICE
+
+© 2025 Dashboarder LMS. All Rights Reserved.
+
+INTELLECTUAL PROPERTY STATEMENT:
+- Software: Dashboarder Learning Management System
+- Version: Initial Development Stage
+- Copyright Registration: Pending
+- Jurisdiction: [Your Primary Operating Jurisdiction]
+
+PROTECTED ELEMENTS:
+1. Source Code
+2. User Interface Design
+3. Documentation
+4. Unique Algorithmic Implementations
+
+CONFIDENTIALITY WARNING:
+This software and its associated documentation contain proprietary and confidential information. 
+Unauthorized use, reproduction, or distribution is strictly prohibited and may result in legal action.
+
+CONTACT FOR PERMISSIONS:
+- Email: support@dashboarder.org
+- Address: 1956, West 10th Street Brooklyn, New York
+
+REVISION DATE: 2025-02-21
