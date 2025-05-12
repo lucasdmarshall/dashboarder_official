@@ -78,11 +78,6 @@ const StudentSidebar = () => {
       path: '/student-courses' 
     },
     { 
-      icon: FaChalkboard, 
-      label: 'Browse Courses', 
-      path: '/browse-courses' 
-    },
-    { 
       icon: FaCalendar, 
       label: 'My Schedule', 
       path: '/student-schedule' 

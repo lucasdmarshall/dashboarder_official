@@ -32,6 +32,10 @@ import InstructorProfile from './pages/InstructorProfile';
 import InstructorCourseStudents from './pages/InstructorCourseStudents';
 import InstructorStudents from './pages/InstructorStudents';
 import InstructorPaymentOptions from './pages/InstructorPaymentOptions';
+import InstructorTimeTable from './pages/InstructorTimeTable';
+import InstructorReportCard from './pages/InstructorReportCard';
+import InstructorHallPass from './pages/InstructorHallPass';
+import InstructorForum from './pages/InstructorForum';
 import StudentProfile from './pages/StudentProfile';
 import StudentProfileNew from './pages/StudentProfileNew';
 import InstructorCourseDetails from './pages/InstructorCourseDetails';
@@ -113,6 +117,10 @@ function App() {
                   <Route path="/instructor-course-students/:courseId" element={<InstructorCourseStudents />} />
                   <Route path="/instructor-students" element={<InstructorStudents />} />
                   <Route path="/instructor-payment-options" element={<InstructorPaymentOptions />} />
+                  <Route path="/instructor-timetable" element={<InstructorTimeTable />} />
+                  <Route path="/instructor-report-card" element={<InstructorReportCard />} />
+                  <Route path="/instructor-hall-pass" element={<InstructorHallPass />} />
+                  <Route path="/instructor-forum" element={<InstructorForum />} />
                   <Route path="/student-profile" element={<StudentProfile />} />
                   <Route path="/student-profile/:studentId" element={<StudentProfile />} />
                   <Route path="/student-profile-new" element={<StudentProfileNew />} />
@@ -126,8 +134,10 @@ function App() {
                   <Route path="/student-assignments" element={<StudentAssignments />} />
                   <Route path="/instructor-quiz-details/:quizId" element={<InstructorQuizDetails />} />
                   <Route path="/instructor-level-purchase" element={<InstructorLevelPurchase />} />
+                  {/* Route commented out but code files preserved
                   <Route path="/student-browse-courses" element={<StudentBrowseCourses />} />
                   <Route path="/browse-courses" element={<StudentBrowseCourses />} />
+                  */}
                   <Route path="/student-hall-pass" element={<StudentHallPass />} />
                   <Route path="/student-report-card" element={<StudentReportCard />} />
                   <Route path="/student-forum" element={<StudentForum />} />
