@@ -138,41 +138,28 @@ const LandingPage = () => {
               Designed for students, instructors, and lifelong learners.
             </Text>
             
-            <Flex gap={4} mt={6}>
+            <Box mt={8} width="full">
               <Button 
                 onClick={handleOpen} 
                 bg="#640101"
                 color="white"
                 size="lg"
-                _hover={{ bg: "black" }}
-                leftIcon={<FaRocket />}
+                width={"200px"}
+                height={"60px"}
+                fontSize={"xl"}
+                fontWeight={"bold"}
+                boxShadow={"lg"}
+                _hover={{ 
+                  bg: "black", 
+                  transform: "translateY(-2px)", 
+                  boxShadow: "xl" 
+                }}
+                leftIcon={<FaRocket size={24} />}
+                transition="all 0.3s ease"
               >
                 Login
               </Button>
-              
-              <Button 
-                as={Link} 
-                to="/instructor-registration" 
-                variant="outline"
-                borderColor="#640101"
-                color="#640101"
-                size="lg"
-              >
-                Be an Instructor
-              </Button>
-
-              <Button 
-                as={Link} 
-                to="/student-registration" 
-                variant="solid" 
-                bg="#640101"
-                color="white"
-                size="lg"
-                _hover={{ bg: "black" }}
-              >
-                Sign Up
-              </Button>
-            </Flex>
+            </Box>
           </VStack>
         </GridItem>
         

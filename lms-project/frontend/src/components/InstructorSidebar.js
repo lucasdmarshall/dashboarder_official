@@ -32,7 +32,10 @@ import {
   FaComments,
   FaEnvelope,
   FaChevronLeft,
-  FaChevronRight
+  FaChevronRight,
+  FaCalendarAlt,
+  FaFileAlt,
+  FaIdCard
 } from 'react-icons/fa';
 
 const THEME_COLORS = {
@@ -152,18 +155,33 @@ const InstructorSidebar = () => {
       path: '/instructor/messages' 
     },
     { 
-      icon: FaPlusCircle, 
-      label: 'Create Course', 
-      path: '/instructor-create-course' 
-    },
-    { 
       icon: FaUsers, 
       label: 'Students', 
       path: '/instructor-students' 
     },
     { 
+      icon: FaCalendarAlt, 
+      label: 'My Time Table', 
+      path: '/instructor-timetable' 
+    },
+    { 
+      icon: FaFileAlt, 
+      label: 'Report Card', 
+      path: '/instructor-report-card' 
+    },
+    { 
+      icon: FaIdCard, 
+      label: 'Hall Pass', 
+      path: '/instructor-hall-pass' 
+    },
+    { 
+      icon: FaComments, 
+      label: 'Forum', 
+      path: '/instructor-forum' 
+    },
+    { 
       icon: FaUserCircle, 
-      label: 'Profile', 
+      label: 'My Profile', 
       path: '/instructor-profile' 
     }
   ];

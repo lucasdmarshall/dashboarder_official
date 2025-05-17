@@ -198,6 +198,7 @@ const InstructorCourses = () => {
             alignItems="center"
             borderBottom="2px solid #640101"
             pb={2}
+            width="100%"
           >
             <Box as={FaBook} mr={3} color="#640101" />
             My Courses
@@ -216,14 +217,9 @@ const InstructorCourses = () => {
               <Text fontSize="xl" color="black" mb={4}>
                 No courses created yet
               </Text>
-              <Button 
-                bg="#640101"
-                color="white"
-                _hover={{ bg: 'black' }}
-                onClick={() => navigate('/instructor-create-course')}
-              >
-                Create First Course
-              </Button>
+              <Text fontSize="md" color="gray.600">
+                Courses will be assigned by your administrator.
+              </Text>
             </Flex>
           ) : (
             <SimpleGrid columns={[1, 2, 3]} spacing={6}>
