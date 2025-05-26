@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   Container, 
@@ -22,54 +22,169 @@ import {
   FormControl,
   FormLabel,
   Input,
+  InputGroup,
+  InputLeftElement,
   Select,
   useToast,
   Flex,
   Text,
   Icon,
-  Tooltip
+  Tooltip,
+  Spinner,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
+  useDisclosure,
+  HStack
 } from '@chakra-ui/react';
 import { 
-  FaEdit, 
-  FaLock, 
-  FaUnlock 
+  FaTrash,
+  FaEye,
+  FaSearch,
+  FaSync
 } from 'react-icons/fa';
 import AdminSidebar from '../components/AdminSidebar';
-import { StudentContext } from '../contexts/StudentContext';
 
 const AdminStudentsPage = () => {
-  const { students, updateStudent, suspendStudent, activateStudent } = useContext(StudentContext);
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState(null);
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
 
-  const handleEditStudent = (student) => {
-    setSelectedStudent(student);
-    setIsEditModalOpen(true);
-  };
+  // Fetch students from backend
+  const fetchStudents = async () => {
+    try {
+      setError(null);
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
 
-  const handleSaveChanges = () => {
-    // Update student in the context
-    updateStudent(selectedStudent.id, selectedStudent);
+      const response = await fetch('http://localhost:5001/api/admin/students', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-    // Close modal and show success toast
-    setIsEditModalOpen(false);
-    toast({
-      title: "Student Updated",
-      description: `${selectedStudent.name}'s information has been updated.`,
-      status: "success",
-      duration: 3000,
-      isClosable: true
-    });
-  };
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-  const handleStatusChange = (student) => {
-    if (student.status === 'active') {
-      suspendStudent(student.id);
-    } else {
-      activateStudent(student.id);
+      const data = await response.json();
+      setStudents(data.students || []);
+      setError(null);
+    } catch (error) {
+      console.error('Error fetching students:', error);
+      setError(error.message);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch students data',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Handle refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchStudents();
+    } catch (error) {
+      console.error('Error refreshing students:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Delete student
+  const handleDeleteStudent = async (studentId, studentName) => {
+    if (!window.confirm(`Are you sure you want to delete ${studentName}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`http://localhost:5001/api/admin/students/${studentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      toast({
+        title: 'Student Deleted',
+        description: `${studentName} has been deleted successfully`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+
+      // Refresh the students list
+      fetchStudents();
+    } catch (error) {
+      console.error('Error deleting student:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete student',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
+  // View student details
+  const handleViewStudent = (student) => {
+    setSelectedStudent(student);
+    onOpen();
+  };
+
+  // Filter students based on search term
+  const filteredStudents = students.filter(student =>
+    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (student.institution && student.institution.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  if (loading) {
+    return (
+      <Flex
+        bg="linear-gradient(135deg, #F7FAFC 0%, #F1F5F9 100%)"
+        minHeight="100vh"
+        position="relative"
+        justify="center"
+        align="center"
+      >
+        <AdminSidebar />
+        <Container maxW="container.xl" ml="250px">
+          <VStack spacing={4}>
+            <Spinner size="xl" color="#640101" />
+            <Text>Loading students...</Text>
+          </VStack>
+        </Container>
+      </Flex>
+    );
+  }
 
   return (
     <Flex
@@ -114,7 +229,7 @@ const AdminStudentsPage = () => {
         position="relative"
       >
         <Heading 
-          mb={8} 
+          mb={6} 
           color="#4A0000"
           fontWeight="bold"
           letterSpacing="wide"
@@ -131,6 +246,42 @@ const AdminStudentsPage = () => {
             borderRadius="full"
           />
         </Heading>
+
+        {/* Search Bar with Refresh Button */}
+        <HStack mb={6} spacing={4}>
+          <InputGroup maxW="400px">
+            <InputLeftElement>
+              <Icon as={FaSearch} color="gray.400" />
+            </InputLeftElement>
+            <Input
+              placeholder="Search by name, email, or institution..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              bg="white"
+              borderColor="gray.200"
+              _focus={{ borderColor: "#640101", boxShadow: "0 0 0 1px #640101" }}
+            />
+          </InputGroup>
+          <Button
+            leftIcon={<FaSync />}
+            onClick={handleRefresh}
+            isLoading={isRefreshing}
+            loadingText="Refreshing"
+            variant="outline"
+            borderColor="#640101"
+            color="#640101"
+            _hover={{ 
+              bg: "#640101", 
+              color: "white" 
+            }}
+            size="md"
+          >
+            Refresh
+          </Button>
+          <Text color="gray.600" fontSize="sm">
+            {filteredStudents.length} student{filteredStudents.length !== 1 ? 's' : ''} found
+          </Text>
+        </HStack>
         
         <Table 
           variant="soft-rounded" 
@@ -146,99 +297,124 @@ const AdminStudentsPage = () => {
             borderBottom="2px solid #640101"
           >
             <Tr>
+              <Th color="#4A0000" fontWeight="bold">No.</Th>
               <Th color="#4A0000" fontWeight="bold">Name</Th>
               <Th color="#4A0000" fontWeight="bold">Email</Th>
-              <Th color="#4A0000" fontWeight="bold">Major</Th>
-              <Th color="#4A0000" fontWeight="bold">Graduation Year</Th>
-              <Th color="#4A0000" fontWeight="bold">Status</Th>
+              <Th color="#4A0000" fontWeight="bold">Institution</Th>
               <Th color="#4A0000" fontWeight="bold">Actions</Th>
             </Tr>
           </Thead>
           <Tbody>
-            {students.map(student => (
-              <Tr 
-                key={student.id}
-                _hover={{ 
-                  bg: "gray.50", 
-                  transform: "translateY(-2px)", 
-                  boxShadow: "0 4px 6px rgba(100, 1, 1, 0.05)"
-                }}
-                transition="all 0.3s ease"
-              >
-                <Td>{student.name}</Td>
-                <Td>{student.email}</Td>
-                <Td>{student.major}</Td>
-                <Td>{student.graduationYear}</Td>
-                <Td>
-                  <Badge 
-                    bg={
-                      student.status === 'active' ? 'rgba(100, 1, 1, 0.1)' : 
-                      student.status === 'probation' ? 'rgba(100, 1, 1, 0.1)' : 
-                      'rgba(100, 1, 1, 0.1)'
-                    }
-                    color="#640101"
-                    borderWidth="1px"
-                    borderColor="rgba(100, 1, 1, 0.2)"
-                    fontWeight="semibold"
-                    textTransform="capitalize"
-                  >
-                    {student.status}
-                  </Badge>
-                </Td>
-                <Td>
-                  <Flex 
-                    alignItems="center" 
-                    justifyContent="space-around"
-                    gap={4}
-                  >
-                    <Tooltip label="Edit Student" placement="top">
-                      <Icon 
-                        as={FaEdit}
-                        color="#4A0000"
-                        boxSize={5}
-                        cursor="pointer"
-                        _hover={{ 
-                          color: "#640101",
-                          transform: "scale(1.2)"
-                        }}
-                        transition="all 0.3s ease"
-                        onClick={() => handleEditStudent(student)}
-                      />
-                    </Tooltip>
-                    
-                    <Tooltip 
-                      label={
-                        student.status === 'active' ? 
-                        'Suspend Student' : 
-                        'Activate Student'
-                      } 
-                      placement="top"
-                    >
-                      <Icon 
-                        as={student.status === 'active' ? FaLock : FaUnlock}
+            {filteredStudents.length > 0 ? (
+              filteredStudents.map((student, index) => (
+                <Tr 
+                  key={student.id}
+                  _hover={{ 
+                    bg: "gray.50", 
+                    transform: "translateY(-2px)", 
+                    boxShadow: "0 4px 6px rgba(100, 1, 1, 0.05)"
+                  }}
+                  transition="all 0.3s ease"
+                >
+                  <Td fontWeight="medium">{index + 1}</Td>
+                  <Td>{student.name}</Td>
+                  <Td>{student.email}</Td>
+                  <Td>
+                    {student.institution ? (
+                      <Badge 
+                        bg="rgba(100, 1, 1, 0.1)"
                         color="#640101"
-                        boxSize={5}
-                        cursor="pointer"
-                        _hover={{ 
-                          color: "#4A0000",
-                          transform: "scale(1.2)"
-                        }}
-                        transition="all 0.3s ease"
-                        onClick={() => handleStatusChange(student)}
-                      />
-                    </Tooltip>
-                  </Flex>
+                        borderWidth="1px"
+                        borderColor="rgba(100, 1, 1, 0.2)"
+                        fontWeight="semibold"
+                      >
+                        {student.institution}
+                      </Badge>
+                    ) : (
+                      <Badge 
+                        bg="gray.100"
+                        color="gray.600"
+                        borderWidth="1px"
+                        borderColor="gray.200"
+                        fontWeight="semibold"
+                      >
+                        NULL
+                      </Badge>
+                    )}
+                  </Td>
+                  <Td>
+                    <Flex 
+                      alignItems="center" 
+                      justifyContent="flex-start"
+                      gap={2}
+                    >
+                      <Tooltip label="View Details" placement="top">
+                        <Box>
+                          <Icon 
+                            as={FaEye}
+                            color="#4A0000"
+                            boxSize={4}
+                            cursor="pointer"
+                            _hover={{ 
+                              color: "#640101",
+                              transform: "scale(1.2)"
+                            }}
+                            transition="all 0.3s ease"
+                            onClick={() => handleViewStudent(student)}
+                          />
+                        </Box>
+                      </Tooltip>
+                      
+                      <Tooltip label="Delete Student" placement="top">
+                        <Box>
+                          <Icon 
+                            as={FaTrash}
+                            color="red.500"
+                            boxSize={4}
+                            cursor="pointer"
+                            _hover={{ 
+                              color: "red.600",
+                              transform: "scale(1.2)"
+                            }}
+                            transition="all 0.3s ease"
+                            onClick={() => handleDeleteStudent(student.id, student.name)}
+                          />
+                        </Box>
+                      </Tooltip>
+                    </Flex>
+                  </Td>
+                </Tr>
+              ))
+            ) : (
+              <Tr>
+                <Td colSpan={5} textAlign="center" py={8}>
+                  <VStack spacing={2}>
+                    <Text color="gray.500" fontSize="lg">
+                      {searchTerm ? 'No students match your search.' : 'No students found'}
+                    </Text>
+                    <Text color="gray.400" fontSize="sm">
+                      {searchTerm ? 'Try adjusting your search terms.' : 'Students will appear here once they register'}
+                    </Text>
+                  </VStack>
                 </Td>
               </Tr>
-            ))}
+            )}
           </Tbody>
         </Table>
 
-        {/* Edit Student Modal */}
+        {error && (
+          <Alert status="error" mt={4}>
+            <AlertIcon />
+            <AlertTitle>Error!</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Student Details Modal */}
         {selectedStudent && (
           <Modal 
-            isOpen={isEditModalOpen} 
-            onClose={() => setIsEditModalOpen(false)}
+            isOpen={isOpen} 
+            onClose={onClose}
             size="xl"
           >
             <ModalOverlay 
@@ -257,105 +433,57 @@ const AdminStudentsPage = () => {
                 fontWeight="bold"
                 textAlign="center"
               >
-                Edit Student: {selectedStudent.name}
+                Student Details
               </ModalHeader>
               <ModalCloseButton 
                 color="#4A0000"
                 _hover={{ color: "#640101" }}
               />
-              <ModalBody>
-                <VStack spacing={4}>
-                  <FormControl>
-                    <FormLabel color="#4A0000">Name</FormLabel>
-                    <Input 
-                      value={selectedStudent.name}
-                      borderColor="rgba(100, 1, 1, 0.2)"
-                      _hover={{ borderColor: "#640101" }}
-                      focusBorderColor="#640101"
-                      onChange={(e) => setSelectedStudent(prev => ({
-                        ...prev, 
-                        name: e.target.value
-                      }))}
-                    />
-                  </FormControl>
-                  
-                  <FormControl>
-                    <FormLabel color="#4A0000">Email</FormLabel>
-                    <Input 
-                      value={selectedStudent.email}
-                      borderColor="rgba(100, 1, 1, 0.2)"
-                      _hover={{ borderColor: "#640101" }}
-                      focusBorderColor="#640101"
-                      onChange={(e) => setSelectedStudent(prev => ({
-                        ...prev, 
-                        email: e.target.value
-                      }))}
-                    />
-                  </FormControl>
-                  
-                  <FormControl>
-                    <FormLabel color="#4A0000">Major</FormLabel>
-                    <Select
-                      value={selectedStudent.major}
-                      borderColor="rgba(100, 1, 1, 0.2)"
-                      _hover={{ borderColor: "#640101" }}
-                      focusBorderColor="#640101"
-                      onChange={(e) => setSelectedStudent(prev => ({
-                        ...prev, 
-                        major: e.target.value
-                      }))}
+              <ModalBody py={6}>
+                <VStack 
+                  align="start" 
+                  spacing={4}
+                >
+                  <Box>
+                    <Text fontWeight="bold" color="#4A0000" mb={1}>Name</Text>
+                    <Text>{selectedStudent.name}</Text>
+                  </Box>
+                  <Box>
+                    <Text fontWeight="bold" color="#4A0000" mb={1}>Email</Text>
+                    <Text>{selectedStudent.email}</Text>
+                  </Box>
+                  <Box>
+                    <Text fontWeight="bold" color="#4A0000" mb={1}>Institution</Text>
+                    <Text>{selectedStudent.institution || 'Not enrolled in any institution'}</Text>
+                  </Box>
+                  <Box>
+                    <Text fontWeight="bold" color="#4A0000" mb={1}>Status</Text>
+                    <Badge 
+                      colorScheme={selectedStudent.is_active ? "green" : "red"}
                     >
-                      <option value="Computer Science">Computer Science</option>
-                      <option value="Data Science">Data Science</option>
-                      <option value="Business Administration">Business Administration</option>
-                      <option value="Engineering">Engineering</option>
-                      <option value="Mathematics">Mathematics</option>
-                    </Select>
-                  </FormControl>
-                  
-                  <FormControl>
-                    <FormLabel color="#4A0000">Graduation Year</FormLabel>
-                    <Input 
-                      type="number"
-                      value={selectedStudent.graduationYear}
-                      borderColor="rgba(100, 1, 1, 0.2)"
-                      _hover={{ borderColor: "#640101" }}
-                      focusBorderColor="#640101"
-                      onChange={(e) => setSelectedStudent(prev => ({
-                        ...prev, 
-                        graduationYear: e.target.value
-                      }))}
-                    />
-                  </FormControl>
-                  
-                  <FormControl>
-                    <FormLabel color="#4A0000">Status</FormLabel>
-                    <Select
-                      value={selectedStudent.status}
-                      borderColor="rgba(100, 1, 1, 0.2)"
-                      _hover={{ borderColor: "#640101" }}
-                      focusBorderColor="#640101"
-                      onChange={(e) => setSelectedStudent(prev => ({
-                        ...prev, 
-                        status: e.target.value
-                      }))}
-                    >
-                      <option value="active">Active</option>
-                      <option value="probation">Probation</option>
-                      <option value="suspended">Suspended</option>
-                    </Select>
-                  </FormControl>
+                      {selectedStudent.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </Box>
+                  {selectedStudent.bio && (
+                    <Box>
+                      <Text fontWeight="bold" color="#4A0000" mb={1}>Bio</Text>
+                      <Text>{selectedStudent.bio}</Text>
+                    </Box>
+                  )}
+                  {selectedStudent.phone && (
+                    <Box>
+                      <Text fontWeight="bold" color="#4A0000" mb={1}>Phone</Text>
+                      <Text>{selectedStudent.phone}</Text>
+                    </Box>
+                  )}
+                  <Box>
+                    <Text fontWeight="bold" color="#4A0000" mb={1}>Registration Date</Text>
+                    <Text>{selectedStudent.created_at ? new Date(selectedStudent.created_at).toLocaleDateString() : 'Unknown'}</Text>
+                  </Box>
                 </VStack>
               </ModalBody>
               <ModalFooter>
-                <Button
-                  bg="#640101"
-                  color="white"
-                  _hover={{ bg: "#4A0000" }}
-                  onClick={handleSaveChanges}
-                >
-                  Save Changes
-                </Button>
+                <Button onClick={onClose}>Close</Button>
               </ModalFooter>
             </ModalContent>
           </Modal>

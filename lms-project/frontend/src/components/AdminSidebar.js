@@ -19,7 +19,8 @@ import {
   FaComments, 
   FaUsers, 
   FaBook, 
-  FaSignOutAlt 
+  FaSignOutAlt,
+  FaBuilding
 } from 'react-icons/fa';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -90,14 +91,14 @@ const AdminSidebar = () => {
 
   const menuItems = [
     {
-      icon: FaChalkboardTeacher,
-      label: 'View Tutors',
-      path: '/admin-tutors-page'
-    },
-    {
       icon: FaClipboardList,
       label: 'Tutor Registrations',
       path: '/admin-tutor-registrations-page'
+    },
+    {
+      icon: FaChalkboardTeacher,
+      label: 'View Tutors',
+      path: '/admin-tutors-page'
     },
     {
       icon: FaUserCog,
@@ -108,6 +109,11 @@ const AdminSidebar = () => {
       icon: FaUsers,
       label: 'Students',
       path: '/admin-students-page'
+    },
+    {
+      icon: FaBuilding,
+      label: 'Manage Institutions',
+      path: '/admin-manage-institutions-page'
     },
     {
       icon: FaBook,

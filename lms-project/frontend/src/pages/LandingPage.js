@@ -14,6 +14,7 @@ import {
   Container, 
   Box, 
   VStack, 
+  HStack,
   Heading, 
   Text, 
   Button, 
@@ -23,7 +24,12 @@ import {
   GridItem,
   Icon,
   SimpleGrid,
-  useColorModeValue
+  useColorModeValue,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  useDisclosure
 } from '@chakra-ui/react';
 import { 
   FaChalkboardTeacher, 
@@ -31,19 +37,33 @@ import {
   FaChartLine, 
   FaUserGraduate,
   FaCertificate,
-  FaRocket
+  FaRocket,
+  FaChevronDown,
+  FaUserTie,
+  FaSignInAlt,
+  FaUserPlus
 } from 'react-icons/fa';
 import LoginModal from '../components/LoginModal';
 import landingHeroImage from '../assets/landing-hero.jpg';
 
 const LandingPage = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
   const navigate = useNavigate();
   const [clickCount, setClickCount] = useState(0);
   const [lastClickTime, setLastClickTime] = useState(0);
 
-  const handleOpen = () => setIsOpen(true);
-  const handleClose = () => setIsOpen(false);
+  const handleLoginOpen = () => setIsLoginOpen(true);
+  const handleLoginClose = () => setIsLoginOpen(false);
+
+  const handleInstructorClick = () => {
+    // Navigate to instructor registration or information page
+    navigate('/instructor-signup');
+  };
+
+  const handleSignUpClick = () => {
+    // Navigate to sign up page or open sign up modal
+    navigate('/signup');
+  };
 
   const handleImageClick = () => {
     const currentTime = Date.now();
@@ -138,11 +158,59 @@ const LandingPage = () => {
               Designed for students, instructors, and lifelong learners.
             </Text>
             
-            <Box mt={8} width="full">
+            <HStack spacing={4} mt={8} width="full" wrap="wrap">
+              {/* Get Started Dropdown Button */}
+              <Menu>
+                <MenuButton
+                  as={Button}
+                  bg="#640101"
+                  color="white"
+                  size="lg"
+                  width={"200px"}
+                  height={"60px"}
+                  fontSize={"xl"}
+                  fontWeight={"bold"}
+                  boxShadow={"lg"}
+                  _hover={{ 
+                    bg: "black", 
+                    transform: "translateY(-2px)", 
+                    boxShadow: "xl" 
+                  }}
+                  _active={{ bg: "black" }}
+                  leftIcon={<FaRocket size={24} />}
+                  rightIcon={<FaChevronDown />}
+                  transition="all 0.3s ease"
+                >
+                  Get Started
+                </MenuButton>
+                <MenuList bg="white" borderColor="#640101" borderWidth="2px">
+                  <MenuItem 
+                    icon={<FaSignInAlt />} 
+                    onClick={handleLoginOpen}
+                    _hover={{ bg: "rgba(100, 1, 1, 0.05)" }}
+                    fontSize="lg"
+                    fontWeight="medium"
+                  >
+                    Login
+                  </MenuItem>
+                  <MenuItem 
+                    icon={<FaUserPlus />} 
+                    onClick={handleSignUpClick}
+                    _hover={{ bg: "rgba(100, 1, 1, 0.05)" }}
+                    fontSize="lg"
+                    fontWeight="medium"
+                  >
+                    Sign Up
+                  </MenuItem>
+                </MenuList>
+              </Menu>
+
+              {/* Be an Instructor Button */}
               <Button 
-                onClick={handleOpen} 
-                bg="#640101"
-                color="white"
+                onClick={handleInstructorClick}
+                bg="white"
+                color="#640101"
+                border="2px solid #640101"
                 size="lg"
                 width={"200px"}
                 height={"60px"}
@@ -150,16 +218,17 @@ const LandingPage = () => {
                 fontWeight={"bold"}
                 boxShadow={"lg"}
                 _hover={{ 
-                  bg: "black", 
+                  bg: "#640101", 
+                  color: "white",
                   transform: "translateY(-2px)", 
                   boxShadow: "xl" 
                 }}
-                leftIcon={<FaRocket size={24} />}
+                leftIcon={<FaUserTie size={24} />}
                 transition="all 0.3s ease"
               >
-                Login
+                Be an Instructor
               </Button>
-            </Box>
+            </HStack>
           </VStack>
         </GridItem>
         
@@ -229,7 +298,7 @@ const LandingPage = () => {
       </SimpleGrid>
 
       {/* Login Modal */}
-      <LoginModal isOpen={isOpen} onClose={handleClose} />
+      <LoginModal isOpen={isLoginOpen} onClose={handleLoginClose} />
     </Container>
   );
 };

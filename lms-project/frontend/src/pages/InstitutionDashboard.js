@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { 
   Box, 
   Container, 
@@ -24,6 +26,7 @@ import {
   Td, 
   Badge, 
   Button,
+  Spinner,
   List,
   ListItem,
   ListIcon,
@@ -89,10 +92,18 @@ import {
   FaPencilAlt
 } from 'react-icons/fa';
 
+// API base URL
+const API_URL = 'http://localhost:5001/api';
+
 const InstitutionDashboard = () => {
+  const { institutionId } = useParams();
+  const navigate = useNavigate();
   const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [tabIndex, setTabIndex] = useState(0);
+  const [institution, setInstitution] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [newStudent, setNewStudent] = useState({
     name: '',
     id: '',
@@ -114,6 +125,92 @@ const InstitutionDashboard = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
+
+  // Fetch institution data when component mounts or institutionId changes
+  useEffect(() => {
+    const fetchInstitutionData = async () => {
+      if (!institutionId) {
+        // If no institution ID is provided, check if user is logged in as institution
+        const userRole = localStorage.getItem('userRole');
+        const userId = localStorage.getItem('userId');
+        
+        if (userRole === 'institution' && userId) {
+          // Redirect to the institution-specific dashboard
+          navigate(`/institution-dashboard/${userId}`);
+          return;
+        }
+        
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Get auth token from localStorage
+        const authToken = localStorage.getItem('authToken');
+        const userRole = localStorage.getItem('userRole');
+        const userId = localStorage.getItem('userId');
+        
+        // Set up headers with auth token
+        const headers = {
+          'Content-Type': 'application/json'
+        };
+        
+        if (authToken) {
+          headers['Authorization'] = `Bearer ${authToken}`;
+        }
+        
+        let response;
+        
+        // If the institution is accessing their own data, use the /me endpoint
+        if (userRole === 'institution' && userId === institutionId) {
+          response = await fetch(`${API_URL}/institutions/me`, { headers });
+        } else {
+          // For admin accessing any institution or other scenarios
+          response = await fetch(`${API_URL}/institutions/${institutionId}`, { headers });
+        }
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setInstitution(data.institution);
+        
+        // Save institution ID to localStorage for use in other components
+        localStorage.setItem('institutionId', institutionId);
+        
+        // You can fetch additional data specific to this institution here
+        // Such as students, courses, etc.
+        
+        toast({
+          title: "Dashboard Loaded",
+          description: `Welcome to ${data.institution.name}'s dashboard`,
+          status: "success",
+          duration: 3000,
+          isClosable: true
+        });
+      } catch (err) {
+        console.error('Error fetching institution data:', err);
+        setError('Failed to load institution data. Please try again later.');
+        
+        toast({
+          title: "Error",
+          description: err.message || "Failed to load institution data",
+          status: "error",
+          duration: 5000,
+          isClosable: true
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchInstitutionData();
+  }, [institutionId, navigate, toast]);
+  
   const [grades, setGrades] = useState([
     { id: 1, name: 'Grade 1', classes: [
       { id: 1, name: 'Class 1A', courses: [
@@ -209,13 +306,34 @@ const InstitutionDashboard = () => {
     ]}
   ]);
 
-  // Mock data for dashboard
-  const stats = {
-    students: { total: 2456, increase: 8.5 },
-    instructors: { total: 98, increase: 2.1 },
-    courses: { total: 156, increase: 12.7 },
-    classes: { total: 243, increase: 5.3 }
+  // Mock data for students
+  const [students, setStudents] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+
+  // Helper function to calculate total enrolled students across all courses
+  const getTotalEnrolledStudents = () => {
+    return grades.reduce((total, grade) => 
+      total + grade.classes.reduce((classTotal, cls) => 
+        classTotal + cls.courses.reduce((courseTotal, course) => 
+          courseTotal + (course.enrolledStudents?.length || 0), 0), 0), 0);
   };
+
+  // Calculate stats dynamically using useMemo to avoid ReferenceError
+  const stats = useMemo(() => ({
+    students: { total: students.length, increase: 8.5 },
+    instructors: { total: 98, increase: 2.1 },
+    courses: { total: grades.reduce((total, grade) => 
+      total + grade.classes.reduce((classTotal, cls) => 
+        classTotal + cls.courses.length, 0), 0), increase: 12.7 },
+    classes: { total: grades.reduce((total, grade) => 
+      total + grade.classes.length, 0), increase: 5.3 }
+  }), [students.length, grades]);
+
+  // Update stats to include course enrollments
+  const updatedStats = useMemo(() => ({
+    ...stats,
+    courseEnrollments: { total: getTotalEnrolledStudents(), increase: 15.2 }
+  }), [stats, grades]);
   
   const recentActivities = [
     { id: 1, action: "New instructor registered", user: "Dr. Sarah Johnson", time: "2 hours ago" },
@@ -237,17 +355,65 @@ const InstitutionDashboard = () => {
     { id: 3, message: "System maintenance scheduled for January 10", type: "warning" }
   ];
 
-  // Mock data for students
-  const [students, setStudents] = useState([
-    { id: "ST001", name: "John Doe", email: "john.doe@example.com", grade: "A", class: "Class 1" },
-    { id: "ST002", name: "Jane Smith", email: "jane.smith@example.com", grade: "B+", class: "Class 2" },
-    { id: "ST003", name: "Michael Johnson", email: "michael.j@example.com", grade: "A-", class: "Class 1" },
-    { id: "ST004", name: "Emily Williams", email: "emily.w@example.com", grade: "B", class: "Class 3" },
-    { id: "ST005", name: "Robert Brown", email: "robert.b@example.com", grade: "C+", class: "Class 2" },
-    { id: "ST006", name: "Sarah Davis", email: "sarah.d@example.com", grade: "A+", class: "Class 1" },
-    { id: "ST007", name: "James Miller", email: "james.m@example.com", grade: "B-", class: "Class 3" },
-    { id: "ST008", name: "Jennifer Wilson", email: "jennifer.w@example.com", grade: "A", class: "Class 2" }
-  ]);
+  // Fetch enrolled students from API
+  const fetchEnrolledStudents = async () => {
+    if (!institutionId) return;
+    
+    try {
+      setLoadingStudents(true);
+      const authToken = localStorage.getItem('authToken');
+      
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
+      const response = await fetch(`${API_URL}/institutions/${institutionId}/enrolled-students`, {
+        headers
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const enrolledStudents = await response.json();
+      
+      // Transform API data to match the expected format for the component
+      const transformedStudents = enrolledStudents.map(student => ({
+        id: student.student_id,
+        name: student.student_name,
+        email: student.student_email,
+        grade: student.grade || 'N/A',
+        class: 'N/A', // You may need to add class information to the enrolled students model
+        status: student.status,
+        enrolledAt: student.enrolled_at
+      }));
+
+      setStudents(transformedStudents);
+    } catch (error) {
+      console.error('Error fetching enrolled students:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load enrolled students. Please try again.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true
+      });
+      setStudents([]);
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
+
+  // Fetch enrolled students when component mounts or institutionId changes
+  useEffect(() => {
+    if (institutionId && !loading) {
+      fetchEnrolledStudents();
+    }
+  }, [institutionId, loading]);
 
   // Filter students based on search term
   const filteredStudents = students.filter(student => 
@@ -264,8 +430,8 @@ const InstitutionDashboard = () => {
   );
 
   // Handle student addition
-  const handleAddStudent = () => {
-    if (!newStudent.name || !newStudent.id || !newStudent.email) {
+  const handleAddStudent = async () => {
+    if (!newStudent.name || !newStudent.email) {
       toast({
         title: "Missing Information",
         description: "Please fill out all required fields.",
@@ -276,24 +442,37 @@ const InstitutionDashboard = () => {
       return;
     }
 
-    // Check if ID already exists
-    if (students.some(student => student.id === newStudent.id)) {
-      toast({
-        title: "Duplicate ID",
-        description: "A student with this ID already exists.",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
+    // Generate a unique student ID
+    const generateStudentId = () => {
+      const randomNum = Math.floor(Math.random() * 9000) + 1000;
+      return `STD${randomNum}`;
+    };
+
+    let studentId = generateStudentId();
+    
+    // Check if ID already exists and generate a new one if needed
+    while (students.some(student => student.id === studentId)) {
+      studentId = generateStudentId();
     }
 
-    setStudents([...students, newStudent]);
+    // For now, add to local state only since there's no direct API endpoint
+    // In a real scenario, enrolled students come from accepted applications
+    const newStudentData = {
+      id: studentId,
+      name: newStudent.name,
+      email: newStudent.email,
+      grade: newStudent.grade,
+      class: newStudent.class,
+      status: 'active',
+      enrolledAt: new Date().toISOString()
+    };
+
+    setStudents([...students, newStudentData]);
     setNewStudent({ name: '', id: '', email: '', grade: 'A', class: 'Class 1' });
     
     toast({
       title: "Student Added",
-      description: "The student has been successfully added.",
+      description: `Student added with ID: ${studentId}`,
       status: "success",
       duration: 3000,
       isClosable: true,
@@ -304,16 +483,64 @@ const InstitutionDashboard = () => {
   };
 
   // Handle student deletion
-  const handleDeleteStudent = (id) => {
-    setStudents(students.filter(student => student.id !== id));
-    
-    toast({
-      title: "Student Removed",
-      description: "The student has been successfully removed.",
-      status: "info",
-      duration: 3000,
-      isClosable: true,
-    });
+  const handleDeleteStudent = async (id) => {
+    try {
+      const authToken = localStorage.getItem('authToken');
+      
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
+      // Try to delete from API first (for students that came from applications)
+      try {
+        const response = await fetch(`${API_URL}/institutions/${institutionId}/enrolled-students/${id}`, {
+          method: 'DELETE',
+          headers
+        });
+
+        if (response.ok) {
+          // Successfully deleted from API
+          setStudents(students.filter(student => student.id !== id));
+          
+          toast({
+            title: "Student Removed",
+            description: "The student has been successfully removed.",
+            status: "info",
+            duration: 3000,
+            isClosable: true,
+          });
+          return;
+        }
+      } catch (apiError) {
+        // If API deletion fails, continue with local state deletion
+        console.log('API deletion failed, removing from local state only:', apiError);
+      }
+
+      // Remove from local state (for manually added students or if API fails)
+      setStudents(students.filter(student => student.id !== id));
+      
+      toast({
+        title: "Student Removed",
+        description: "The student has been removed from the list.",
+        status: "info",
+        duration: 3000,
+        isClosable: true,
+      });
+
+    } catch (error) {
+      console.error('Error deleting student:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete student. Please try again.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
   };
 
   // Handle input change for new student form
@@ -1028,785 +1255,853 @@ const InstitutionDashboard = () => {
     setIsCourseDetailOpen(true); // Reopen the course details modal
   };
 
+  // Render loading state if data is being fetched
+  if (loading) {
+    return (
+      <Box bg="gray.50" minH="100vh" display="flex" alignItems="center" justifyContent="center">
+        <Flex direction="column" align="center">
+          <Spinner size="xl" color="#640101" thickness="4px" speed="0.65s" />
+          <Text mt={4} fontSize="lg">Loading institution dashboard...</Text>
+        </Flex>
+      </Box>
+    );
+  }
+  
+  // Render error state if there was an error fetching data
+  if (error) {
+    return (
+      <Box bg="gray.50" minH="100vh" display="flex" alignItems="center" justifyContent="center">
+        <Flex direction="column" align="center" p={8} bg="white" borderRadius="md" boxShadow="md">
+          <Icon as={FaExclamationTriangle} boxSize={12} color="red.500" mb={4} />
+          <Heading size="md" mb={2}>Error Loading Dashboard</Heading>
+          <Text mb={4}>{error}</Text>
+          <Button colorScheme="red" onClick={() => window.location.reload()}>Try Again</Button>
+        </Flex>
+      </Box>
+    );
+  }
+  
+  // If no institution ID was provided and user is not logged in as an institution
+  if (!institutionId && !institution) {
+    return (
+      <Box bg="gray.50" minH="100vh" display="flex" alignItems="center" justifyContent="center">
+        <Flex direction="column" align="center" p={8} bg="white" borderRadius="md" boxShadow="md">
+          <Icon as={FaInfoCircle} boxSize={12} color="blue.500" mb={4} />
+          <Heading size="md" mb={2}>Institution Dashboard</Heading>
+          <Text mb={4}>Please select an institution or log in as an institution to view the dashboard.</Text>
+          <Button colorScheme="blue" onClick={() => navigate('/')}>Go to Home</Button>
+        </Flex>
+      </Box>
+    );
+  }
+  
   return (
     <Box>
       <InstitutionSidebar />
-      <Container 
-        maxW="1190px" 
-        mt="80px" 
-        ml={{ base: "250px", md: "260px" }} 
-        pr={{ base: 1, md: 3 }}
-        pl={{ base: 1, md: 3 }}
-        overflow="hidden"
-      >
-        <Box mb={5}>
-          <Heading as="h1" size="xl" mb={2} color="#640101">Class Division</Heading>
-          <Text color="gray.600">Manage students, grades and classes</Text>
-        </Box>
+      <Box>
+        <Container 
+          maxW="1190px" 
+          mt="80px" 
+          ml={{ base: "250px", md: "260px" }} 
+          pr={{ base: 1, md: 3 }}
+          pl={{ base: 1, md: 3 }}
+          overflow="hidden"
+        >
+          {/* Welcome message banner */}
+          <Box mb={4} p={3} bg="#640101" color="white" borderRadius="md" boxShadow="sm">
+            <Heading size="md">Welcome {institution?.name || localStorage.getItem('userName') || 'to Institution Dashboard'}</Heading>
+            <Text fontSize="sm" mt={1}>Manage your institution's resources and students</Text>
+          </Box>
+        
+          <Box mb={5}>
+            <Heading as="h1" size="xl" mb={2} color="#640101">Class Division</Heading>
+            <Text color="gray.600">Manage students, grades and classes</Text>
+          </Box>
 
-        <Tabs isFitted variant="enclosed" colorScheme="red" index={tabIndex} onChange={handleTabChange}>
-          <TabList mb="1em">
-            <Tab _selected={{ color: "white", bg: "#640101" }} fontWeight="medium">Student List</Tab>
-            <Tab _selected={{ color: "white", bg: "#640101" }} fontWeight="medium">Grade</Tab>
-            <Tab _selected={{ color: "white", bg: "#640101" }} fontWeight="medium">Add Student</Tab>
-          </TabList>
-          
-          <TabPanels>
-            {/* Student List Tab */}
-            <TabPanel>
-              <Box mb={5}>
-                <InputGroup>
-                  <InputLeftElement pointerEvents="none">
-                    <FaSearch color="#640101" />
-                  </InputLeftElement>
-                  <Input 
-                    placeholder="Search by name, ID, email or class..." 
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    borderColor="gray.300"
-                    _focus={{ borderColor: "#640101", boxShadow: "0 0 0 1px #640101" }}
-                  />
-                </InputGroup>
-              </Box>
-              
-              <Box overflowX="hidden" borderWidth="1px" borderRadius="lg" borderColor="gray.200">
-                <Table variant="simple" colorScheme="gray" size="sm" sx={{
-                  'th, td': {
-                    px: 2,
-                    py: 2,
-                    fontSize: 'sm'
-                  }
-                }}>
-                  <Thead bg="#f5f5f5">
-                    <Tr>
-                      <Th width="12%">ID</Th>
-                      <Th width="22%">NAME</Th>
-                      <Th width="24%">Email</Th>
-                      <Th width="12%">Grade</Th>
-                      <Th width="15%">Class</Th>
-                      <Th width="15%">Actions</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {filteredStudents.length > 0 ? (
-                      filteredStudents.map((student) => (
-                        <Tr key={student.id}>
-                          <Td>{student.id}</Td>
-                          <Td>{student.name}</Td>
-                          <Td>
-                            <Tooltip label={student.email} placement="top" hasArrow>
-                              <Text noOfLines={1} maxW="180px">{student.email}</Text>
-                            </Tooltip>
-                          </Td>
-                          <Td>
-                            <Badge colorScheme={getGradeColor(student.grade)} px={2} py={1}>
-                              {student.grade}
-                            </Badge>
-                          </Td>
-                          <Td>{student.class}</Td>
-                          <Td>
-                            <Flex gap={1}>
-                              <IconButton 
-                                icon={<FaEdit />} 
-                                size="xs"
-                                colorScheme="blue" 
-                                aria-label="Edit student" 
-                              />
-                              <IconButton 
-                                icon={<FaTrash />} 
-                                size="xs" 
-                                colorScheme="red" 
-                                aria-label="Delete student" 
-                                onClick={() => handleDeleteStudent(student.id)}
-                              />
-                            </Flex>
-                          </Td>
-                        </Tr>
-                      ))
-                    ) : (
-                      <Tr>
-                        <Td colSpan={6} textAlign="center" py={4}>
-                          No students found matching the search criteria.
-                        </Td>
-                      </Tr>
-                    )}
-                  </Tbody>
-                </Table>
-              </Box>
-            </TabPanel>
+          <Tabs isFitted variant="enclosed" colorScheme="red" index={tabIndex} onChange={handleTabChange}>
+            <TabList mb="1em">
+              <Tab _selected={{ color: "white", bg: "#640101" }} fontWeight="medium">Student List</Tab>
+              <Tab _selected={{ color: "white", bg: "#640101" }} fontWeight="medium">Grade</Tab>
+              <Tab _selected={{ color: "white", bg: "#640101" }} fontWeight="medium">Add Student</Tab>
+            </TabList>
             
-            {/* Grade Tab */}
-            <TabPanel>
-              <Box mb={4}>
-                {currentLevel !== 'grades' && (
-                  <Button 
-                    leftIcon={<FaArrowLeft />} 
-                    variant="outline" 
-                    colorScheme="red" 
-                    size="sm"
-                    onClick={handleBackClick}
-                    mb={4}
-                  >
-                    Back
-                  </Button>
-                )}
-                
-                <Breadcrumb separator=">" mb={6} mt={currentLevel !== 'grades' ? 4 : 0}>
-                  <BreadcrumbItem isCurrentPage={currentLevel === 'grades'}>
-                    <BreadcrumbLink 
-                      onClick={() => setCurrentLevel('grades')}
-                      fontWeight={currentLevel === 'grades' ? 'bold' : 'normal'}
-                      color={currentLevel === 'grades' ? '#640101' : 'gray.500'}
-                    >
-                      Grades
-                    </BreadcrumbLink>
-                  </BreadcrumbItem>
-                  
-                  {selectedGrade && (
-                    <BreadcrumbItem isCurrentPage={currentLevel === 'classes'}>
-                      <BreadcrumbLink 
-                        onClick={() => setCurrentLevel('classes')}
-                        fontWeight={currentLevel === 'classes' ? 'bold' : 'normal'}
-                        color={currentLevel === 'classes' ? '#640101' : 'gray.500'}
-                      >
-                        {selectedGrade.name}
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                  )}
-                  
-                  {selectedClass && (
-                    <BreadcrumbItem isCurrentPage={currentLevel === 'courses'}>
-                      <BreadcrumbLink 
-                        fontWeight="bold"
-                        color="#640101"
-                      >
-                        {selectedClass.name}
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                  )}
-                </Breadcrumb>
-                
-                <Flex justify="space-between" align="center" mb={6}>
-                  <Heading size="lg" color="#640101">
-                    {currentLevel === 'grades' ? 'Grades' : 
-                     currentLevel === 'classes' ? `Classes in ${selectedGrade.name}` : 
-                     `Courses in ${selectedClass.name}`}
-                  </Heading>
-                  
-                  <Button 
-                    leftIcon={<FaPlus />} 
-                    colorScheme="red" 
+            <TabPanels>
+              {/* Student List Tab */}
+              <TabPanel>
+                <Flex mb={5} gap={3} align="center">
+                  <InputGroup flex="1">
+                    <InputLeftElement pointerEvents="none">
+                      <FaSearch color="#640101" />
+                    </InputLeftElement>
+                    <Input 
+                      placeholder="Search by name, ID, email or class..." 
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      borderColor="gray.300"
+                      _focus={{ borderColor: "#640101", boxShadow: "0 0 0 1px #640101" }}
+                    />
+                  </InputGroup>
+                  <Button
+                    leftIcon={<FaClock />}
+                    colorScheme="red"
                     bg="#640101"
-                    onClick={onOpen}
+                    onClick={fetchEnrolledStudents}
+                    isLoading={loadingStudents}
+                    loadingText="Refreshing"
+                    size="md"
                   >
-                    Create {currentLevel === 'grades' ? 'Grade' : 
-                           currentLevel === 'classes' ? 'Class' : 'Course'}
+                    Refresh
                   </Button>
                 </Flex>
                 
-                <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing={6}>
-                  {currentLevel === 'grades' && grades.map(grade => (
-                    <Box 
-                      key={grade.id}
-                      onClick={isEditMode ? () => setItemToEdit(grade) : () => handleGradeClick(grade)}
-                      cursor="pointer"
-                      borderWidth="1px"
-                      borderRadius="lg"
-                      overflow="hidden"
-                      p={4}
-                      textAlign="center"
-                      transition="all 0.2s"
-                      position="relative"
-                      _hover={{ 
-                        transform: 'translateY(-4px)', 
-                        shadow: 'md',
-                        borderColor: '#640101' 
-                      }}
-                      bg={itemToEdit?.id === grade.id && isEditMode ? "rgba(100, 1, 1, 0.05)" : "white"}
-                    >
-                      {isEditMode && itemToEdit?.id === grade.id && (
-                        <Menu>
-                          <MenuButton
-                            as={IconButton}
-                            icon={<FaEllipsisV />}
-                            variant="ghost"
-                            size="sm"
-                            position="absolute"
-                            top={2}
-                            right={2}
-                            zIndex={2}
-                            aria-label="Options"
-                          />
-                          <MenuList minWidth="140px">
-                            <MenuItem 
-                              icon={<FaEdit />} 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setItemToEdit(grade);
-                                setNewName(grade.name);
-                                setIsRenameModalOpen(true);
-                              }}
-                            >
-                              Rename
-                            </MenuItem>
-                            <MenuItem 
-                              icon={<FaTrash />} 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setItemToEdit(grade);
-                                setIsDeleteModalOpen(true);
-                              }}
-                            >
-                              Delete
-                            </MenuItem>
-                          </MenuList>
-                        </Menu>
+                <Box overflowX="hidden" borderWidth="1px" borderRadius="lg" borderColor="gray.200">
+                  <Table variant="simple" colorScheme="gray" size="sm" sx={{
+                    'th, td': {
+                      px: 2,
+                      py: 2,
+                      fontSize: 'sm'
+                    }
+                  }}>
+                    <Thead bg="#f5f5f5">
+                      <Tr>
+                        <Th width="12%">ID</Th>
+                        <Th width="22%">NAME</Th>
+                        <Th width="24%">Email</Th>
+                        <Th width="12%">Grade</Th>
+                        <Th width="15%">Class</Th>
+                        <Th width="15%">Actions</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {loadingStudents ? (
+                        <Tr>
+                          <Td colSpan={6} textAlign="center" py={8}>
+                            <Flex direction="column" align="center" gap={3}>
+                              <Spinner size="lg" color="#640101" />
+                              <Text>Loading students...</Text>
+                            </Flex>
+                          </Td>
+                        </Tr>
+                      ) : filteredStudents.length > 0 ? (
+                        filteredStudents.map((student) => (
+                          <Tr key={student.id}>
+                            <Td>{student.id}</Td>
+                            <Td>{student.name}</Td>
+                            <Td>
+                              <Tooltip label={student.email} placement="top" hasArrow>
+                                <Text noOfLines={1} maxW="180px">{student.email}</Text>
+                              </Tooltip>
+                            </Td>
+                            <Td>
+                              <Badge colorScheme={getGradeColor(student.grade)} px={2} py={1}>
+                                {student.grade}
+                              </Badge>
+                            </Td>
+                            <Td>{student.class}</Td>
+                            <Td>
+                              <Flex gap={1}>
+                                <IconButton 
+                                  icon={<FaEdit />} 
+                                  size="xs"
+                                  colorScheme="blue" 
+                                  aria-label="Edit student" 
+                                />
+                                <IconButton 
+                                  icon={<FaTrash />} 
+                                  size="xs" 
+                                  colorScheme="red" 
+                                  aria-label="Delete student" 
+                                  onClick={() => handleDeleteStudent(student.id)}
+                                />
+                              </Flex>
+                            </Td>
+                          </Tr>
+                        ))
+                      ) : (
+                        <Tr>
+                          <Td colSpan={6} textAlign="center" py={8}>
+                            <Text color="gray.500">No students found</Text>
+                          </Td>
+                        </Tr>
                       )}
-                      <Box 
-                        p={2} 
-                        bg="#640101" 
-                        color="white" 
-                        width="100%" 
-                        borderTopRadius="md"
-                        mb={3}
-                      >
-                        <Icon as={FaFolder} fontSize="xl" mr={2} />
-                        <Text fontWeight="bold" display="inline">
-                          {grade.name}
-                        </Text>
-                      </Box>
-                      <VStack align="stretch" spacing={2} textAlign="left">
-                        <Flex justify="space-between">
-                          <Text fontSize="sm" color="gray.600">Instructor:</Text>
-                          <Text fontSize="sm" fontWeight="medium">
-                            {grade.classes[0]?.courses[0]?.instructor || "Dr. John Smith"}
-                          </Text>
-                        </Flex>
-                        <Flex justify="space-between">
-                          <Text fontSize="sm" color="gray.600">Students:</Text>
-                          <Text fontSize="sm" fontWeight="medium">
-                            {grade.classes.reduce((total, cls) => 
-                              total + cls.courses.reduce((t, c) => 
-                                t + (c.enrolledStudents?.length || 0), 0), 0) || 3}
-                          </Text>
-                        </Flex>
-                        <Flex justify="space-between">
-                          <Text fontSize="sm" color="gray.600">Grading Periods:</Text>
-                          <Text fontSize="sm" fontWeight="medium">
-                            {grade.id === 1 ? 2 : 4}
-                          </Text>
-                        </Flex>
-                        <Flex justify="space-between">
-                          <Text fontSize="sm" color="gray.600">Courses:</Text>
-                          <Text fontSize="sm" fontWeight="medium">
-                            {grade.classes.reduce((total, cls) => 
-                              total + cls.courses.length, 0) || 8}
-                          </Text>
-                        </Flex>
-                      </VStack>
-                    </Box>
-                  ))}
-                  
-                  {currentLevel === 'classes' && selectedGrade && selectedGrade.classes.map(classItem => (
-                    <Box 
-                      key={classItem.id}
-                      onClick={isEditMode ? () => setItemToEdit(classItem) : () => handleClassClick(classItem)}
-                      cursor="pointer"
-                      borderWidth="1px"
-                      borderRadius="lg"
-                      overflow="hidden"
-                      p={4}
-                      textAlign="center"
-                      transition="all 0.2s"
-                      position="relative"
-                      _hover={{ 
-                        transform: 'translateY(-4px)', 
-                        shadow: 'md',
-                        borderColor: '#640101' 
-                      }}
-                      bg={itemToEdit?.id === classItem.id && isEditMode ? "rgba(100, 1, 1, 0.05)" : "white"}
-                    >
-                      {isEditMode && itemToEdit?.id === classItem.id && (
-                        <Menu>
-                          <MenuButton
-                            as={IconButton}
-                            icon={<FaEllipsisV />}
-                            variant="ghost"
-                            size="sm"
-                            position="absolute"
-                            top={2}
-                            right={2}
-                            zIndex={2}
-                            aria-label="Options"
-                          />
-                          <MenuList minWidth="140px">
-                            <MenuItem 
-                              icon={<FaEdit />} 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setItemToEdit(classItem);
-                                setNewName(classItem.name);
-                                setIsRenameModalOpen(true);
-                              }}
-                            >
-                              Rename
-                            </MenuItem>
-                            <MenuItem 
-                              icon={<FaTrash />} 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setItemToEdit(classItem);
-                                setIsDeleteModalOpen(true);
-                              }}
-                            >
-                              Delete
-                            </MenuItem>
-                          </MenuList>
-                        </Menu>
-                      )}
-                      <Box 
-                        p={2} 
-                        bg="#640101" 
-                        color="white" 
-                        width="100%" 
-                        borderTopRadius="md"
-                        mb={3}
-                      >
-                        <Icon as={FaFolder} fontSize="xl" mr={2} />
-                        <Text fontWeight="bold" display="inline">
-                          {classItem.name}
-                        </Text>
-                      </Box>
-                      <VStack align="stretch" spacing={2} textAlign="left">
-                        <Flex justify="space-between">
-                          <Text fontSize="sm" color="gray.600">Instructor:</Text>
-                          <Text fontSize="sm" fontWeight="medium">
-                            {classItem.courses[0]?.instructor || "Dr. John Smith"}
-                          </Text>
-                        </Flex>
-                        <Flex justify="space-between">
-                          <Text fontSize="sm" color="gray.600">Students:</Text>
-                          <Text fontSize="sm" fontWeight="medium">
-                            {classItem.courses.reduce((total, c) => 
-                              total + (c.enrolledStudents?.length || 0), 0) || 3}
-                          </Text>
-                        </Flex>
-                        <Flex justify="space-between">
-                          <Text fontSize="sm" color="gray.600">Courses:</Text>
-                          <Text fontSize="sm" fontWeight="medium">
-                            {classItem.courses.length || 8}
-                          </Text>
-                        </Flex>
-                      </VStack>
-                    </Box>
-                  ))}
-                  
-                  {currentLevel === 'courses' && selectedClass && selectedClass.courses.map(course => (
-                    <Box 
-                      key={course.id}
-                      onClick={isEditMode ? () => setItemToEdit(course) : () => handleCourseClick(course)}
-                      cursor="pointer"
-                      borderWidth="1px"
-                      borderRadius="lg"
-                      overflow="hidden"
-                      p={4}
-                      textAlign="center"
-                      transition="all 0.2s"
-                      position="relative"
-                      _hover={{ 
-                        transform: 'translateY(-4px)', 
-                        shadow: 'md',
-                        borderColor: '#640101' 
-                      }}
-                      bg={itemToEdit?.id === course.id && isEditMode ? "rgba(100, 1, 1, 0.05)" : "white"}
-                    >
-                      {isEditMode && itemToEdit?.id === course.id && (
-                        <Menu>
-                          <MenuButton
-                            as={IconButton}
-                            icon={<FaEllipsisV />}
-                            variant="ghost"
-                            size="sm"
-                            position="absolute"
-                            top={2}
-                            right={2}
-                            zIndex={2}
-                            aria-label="Options"
-                          />
-                          <MenuList minWidth="140px">
-                            <MenuItem 
-                              icon={<FaEdit />} 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setItemToEdit(course);
-                                setNewName(course.name);
-                                setIsRenameModalOpen(true);
-                              }}
-                            >
-                              Rename
-                            </MenuItem>
-                            <MenuItem 
-                              icon={<FaTrash />} 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setItemToEdit(course);
-                                setIsDeleteModalOpen(true);
-                              }}
-                            >
-                              Delete
-                            </MenuItem>
-                          </MenuList>
-                        </Menu>
-                      )}
-                      <Box 
-                        p={2} 
-                        bg="#640101" 
-                        color="white" 
-                        width="100%" 
-                        borderTopRadius="md"
-                        mb={3}
-                      >
-                        <Icon as={FaFolder} fontSize="xl" mr={2} />
-                        <Text fontWeight="bold" display="inline">
-                          {course.name}
-                        </Text>
-                      </Box>
-                      <VStack align="stretch" spacing={2} textAlign="left">
-                        <Flex justify="space-between">
-                          <Text fontSize="sm" color="gray.600">Instructor:</Text>
-                          <Text fontSize="sm" fontWeight="medium">
-                            {course.instructor}
-                          </Text>
-                        </Flex>
-                        <Flex justify="space-between">
-                          <Text fontSize="sm" color="gray.600">Students:</Text>
-                          <Text fontSize="sm" fontWeight="medium">
-                            {course.enrolledStudents?.length || 0}
-                          </Text>
-                        </Flex>
-                        <Flex justify="space-between">
-                          <Text fontSize="sm" color="gray.600">Grade:</Text>
-                          <Text fontSize="sm" fontWeight="medium">
-                            {course.grade || "N/A"}
-                          </Text>
-                        </Flex>
-                      </VStack>
-                    </Box>
-                  ))}
-                </SimpleGrid>
-              </Box>
+                    </Tbody>
+                  </Table>
+                </Box>
+              </TabPanel>
               
-              {/* Modal for creating new item */}
-              <Modal isOpen={isOpen} onClose={onClose}>
-                <ModalOverlay />
-                <ModalContent>
-                  <ModalHeader>
-                    Create New {currentLevel === 'grades' ? 'Grade' : 
-                               currentLevel === 'classes' ? 'Class' : 'Course'}
-                  </ModalHeader>
-                  <ModalCloseButton />
-                  <ModalBody>
-                    <FormControl>
-                      <FormLabel>
-                        {currentLevel === 'grades' ? 'Grade' : 
-                         currentLevel === 'classes' ? 'Class' : 'Course'} Name
-                      </FormLabel>
-                      <Input 
-                        value={newItemName}
-                        onChange={(e) => setNewItemName(e.target.value)}
-                        placeholder={`Enter ${currentLevel === 'grades' ? 'grade' : 
-                                      currentLevel === 'classes' ? 'class' : 'course'} name`}
-                      />
-                    </FormControl>
-                  </ModalBody>
-                  <ModalFooter>
-                    <Button variant="ghost" mr={3} onClick={onClose}>
-                      Cancel
-                    </Button>
+              {/* Grade Tab */}
+              <TabPanel>
+                <Box mb={4}>
+                  {currentLevel !== 'grades' && (
                     <Button 
+                      leftIcon={<FaArrowLeft />} 
+                      variant="outline" 
+                      colorScheme="red" 
+                      size="sm"
+                      onClick={handleBackClick}
+                      mb={4}
+                    >
+                      Back
+                    </Button>
+                  )}
+                  
+                  <Breadcrumb separator=">" mb={6} mt={currentLevel !== 'grades' ? 4 : 0}>
+                    <BreadcrumbItem isCurrentPage={currentLevel === 'grades'}>
+                      <BreadcrumbLink 
+                        onClick={() => setCurrentLevel('grades')}
+                        fontWeight={currentLevel === 'grades' ? 'bold' : 'normal'}
+                        color={currentLevel === 'grades' ? '#640101' : 'gray.500'}
+                      >
+                        Grades
+                      </BreadcrumbLink>
+                    </BreadcrumbItem>
+                    
+                    {selectedGrade && (
+                      <BreadcrumbItem isCurrentPage={currentLevel === 'classes'}>
+                        <BreadcrumbLink 
+                          onClick={() => setCurrentLevel('classes')}
+                          fontWeight={currentLevel === 'classes' ? 'bold' : 'normal'}
+                          color={currentLevel === 'classes' ? '#640101' : 'gray.500'}
+                        >
+                          {selectedGrade.name}
+                        </BreadcrumbLink>
+                      </BreadcrumbItem>
+                    )}
+                    
+                    {selectedClass && (
+                      <BreadcrumbItem isCurrentPage={currentLevel === 'courses'}>
+                        <BreadcrumbLink 
+                          fontWeight="bold"
+                          color="#640101"
+                        >
+                          {selectedClass.name}
+                        </BreadcrumbLink>
+                      </BreadcrumbItem>
+                    )}
+                  </Breadcrumb>
+                  
+                  <Flex justify="space-between" align="center" mb={6}>
+                    <Heading size="lg" color="#640101">
+                      {currentLevel === 'grades' ? 'Grades' : 
+                       currentLevel === 'classes' ? `Classes in ${selectedGrade.name}` : 
+                       `Courses in ${selectedClass.name}`}
+                    </Heading>
+                    
+                    <Button 
+                      leftIcon={<FaPlus />} 
                       colorScheme="red" 
                       bg="#640101"
-                      onClick={handleCreateNewItem}
-                      isDisabled={!newItemName}
+                      onClick={onOpen}
                     >
-                      Create
-                    </Button>
-                  </ModalFooter>
-                </ModalContent>
-              </Modal>
-            </TabPanel>
-            
-            {/* Add Student Tab */}
-            <TabPanel>
-              {courseForEnrollment ? (
-                <Box mb={4} p={3} borderWidth="1px" borderRadius="md" bg="blue.50">
-                  <Flex justify="space-between" align="center">
-                    <Box>
-                      <Heading size="sm">Enrolling Students in Course:</Heading>
-                      <Text fontWeight="medium">{courseForEnrollment.name}</Text>
-                      <Text fontSize="sm">Instructor: {courseForEnrollment.instructor}</Text>
-                    </Box>
-                    <Button 
-                      colorScheme="blue" 
-                      size="sm"
-                      leftIcon={<FaUserGraduate />}
-                      onClick={handleEnrollSelectedStudents}
-                      isDisabled={selectedStudents.length === 0}
-                    >
-                      Enroll Selected ({selectedStudents.length})
+                      Create {currentLevel === 'grades' ? 'Grade' : 
+                             currentLevel === 'classes' ? 'Class' : 'Course'}
                     </Button>
                   </Flex>
+                  
+                  <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing={6}>
+                    {currentLevel === 'grades' && grades.map(grade => (
+                      <Box 
+                        key={grade.id}
+                        onClick={isEditMode ? () => setItemToEdit(grade) : () => handleGradeClick(grade)}
+                        cursor="pointer"
+                        borderWidth="1px"
+                        borderRadius="lg"
+                        overflow="hidden"
+                        p={4}
+                        textAlign="center"
+                        transition="all 0.2s"
+                        position="relative"
+                        _hover={{ 
+                          transform: 'translateY(-4px)', 
+                          shadow: 'md',
+                          borderColor: '#640101' 
+                        }}
+                        bg={itemToEdit?.id === grade.id && isEditMode ? "rgba(100, 1, 1, 0.05)" : "white"}
+                      >
+                        {isEditMode && itemToEdit?.id === grade.id && (
+                          <Menu>
+                            <MenuButton
+                              as={IconButton}
+                              icon={<FaEllipsisV />}
+                              variant="ghost"
+                              size="sm"
+                              position="absolute"
+                              top={2}
+                              right={2}
+                              zIndex={2}
+                              aria-label="Options"
+                            />
+                            <MenuList minWidth="140px">
+                              <MenuItem 
+                                icon={<FaEdit />} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setItemToEdit(grade);
+                                  setNewName(grade.name);
+                                  setIsRenameModalOpen(true);
+                                }}
+                              >
+                                Rename
+                              </MenuItem>
+                              <MenuItem 
+                                icon={<FaTrash />} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setItemToEdit(grade);
+                                  setIsDeleteModalOpen(true);
+                                }}
+                              >
+                                Delete
+                              </MenuItem>
+                            </MenuList>
+                          </Menu>
+                        )}
+                        <Box 
+                          p={2} 
+                          bg="#640101" 
+                          color="white" 
+                          width="100%" 
+                          borderTopRadius="md"
+                          mb={3}
+                        >
+                          <Icon as={FaFolder} fontSize="xl" mr={2} />
+                          <Text fontWeight="bold" display="inline">
+                            {grade.name}
+                          </Text>
+                        </Box>
+                        <VStack align="stretch" spacing={2} textAlign="left">
+                          <Flex justify="space-between">
+                            <Text fontSize="sm" color="gray.600">Instructor:</Text>
+                            <Text fontSize="sm" fontWeight="medium">
+                              {grade.classes[0]?.courses[0]?.instructor || "Dr. John Smith"}
+                            </Text>
+                          </Flex>
+                          <Flex justify="space-between">
+                            <Text fontSize="sm" color="gray.600">Students:</Text>
+                            <Text fontSize="sm" fontWeight="medium">
+                              {grade.classes.reduce((total, cls) => 
+                                total + cls.courses.reduce((t, c) => 
+                                  t + (c.enrolledStudents?.length || 0), 0), 0)}
+                            </Text>
+                          </Flex>
+                          <Flex justify="space-between">
+                            <Text fontSize="sm" color="gray.600">Grading Periods:</Text>
+                            <Text fontSize="sm" fontWeight="medium">
+                              {grade.id <= 2 ? 2 : 4}
+                            </Text>
+                          </Flex>
+                          <Flex justify="space-between">
+                            <Text fontSize="sm" color="gray.600">Courses:</Text>
+                            <Text fontSize="sm" fontWeight="medium">
+                              {grade.classes.reduce((total, cls) => 
+                                total + cls.courses.length, 0)}
+                            </Text>
+                          </Flex>
+                        </VStack>
+                      </Box>
+                    ))}
+                    
+                    {currentLevel === 'classes' && selectedGrade && selectedGrade.classes.map(classItem => (
+                      <Box 
+                        key={classItem.id}
+                        onClick={isEditMode ? () => setItemToEdit(classItem) : () => handleClassClick(classItem)}
+                        cursor="pointer"
+                        borderWidth="1px"
+                        borderRadius="lg"
+                        overflow="hidden"
+                        p={4}
+                        textAlign="center"
+                        transition="all 0.2s"
+                        position="relative"
+                        _hover={{ 
+                          transform: 'translateY(-4px)', 
+                          shadow: 'md',
+                          borderColor: '#640101' 
+                        }}
+                        bg={itemToEdit?.id === classItem.id && isEditMode ? "rgba(100, 1, 1, 0.05)" : "white"}
+                      >
+                        {isEditMode && itemToEdit?.id === classItem.id && (
+                          <Menu>
+                            <MenuButton
+                              as={IconButton}
+                              icon={<FaEllipsisV />}
+                              variant="ghost"
+                              size="sm"
+                              position="absolute"
+                              top={2}
+                              right={2}
+                              zIndex={2}
+                              aria-label="Options"
+                            />
+                            <MenuList minWidth="140px">
+                              <MenuItem 
+                                icon={<FaEdit />} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setItemToEdit(classItem);
+                                  setNewName(classItem.name);
+                                  setIsRenameModalOpen(true);
+                                }}
+                              >
+                                Rename
+                              </MenuItem>
+                              <MenuItem 
+                                icon={<FaTrash />} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setItemToEdit(classItem);
+                                  setIsDeleteModalOpen(true);
+                                }}
+                              >
+                                Delete
+                              </MenuItem>
+                            </MenuList>
+                          </Menu>
+                        )}
+                        <Box 
+                          p={2} 
+                          bg="#640101" 
+                          color="white" 
+                          width="100%" 
+                          borderTopRadius="md"
+                          mb={3}
+                        >
+                          <Icon as={FaFolder} fontSize="xl" mr={2} />
+                          <Text fontWeight="bold" display="inline">
+                            {classItem.name}
+                          </Text>
+                        </Box>
+                        <VStack align="stretch" spacing={2} textAlign="left">
+                          <Flex justify="space-between">
+                            <Text fontSize="sm" color="gray.600">Instructor:</Text>
+                            <Text fontSize="sm" fontWeight="medium">
+                              {classItem.courses[0]?.instructor || "Dr. John Smith"}
+                            </Text>
+                          </Flex>
+                          <Flex justify="space-between">
+                            <Text fontSize="sm" color="gray.600">Students:</Text>
+                            <Text fontSize="sm" fontWeight="medium">
+                              {classItem.courses.reduce((total, c) => 
+                                total + (c.enrolledStudents?.length || 0), 0)}
+                            </Text>
+                          </Flex>
+                          <Flex justify="space-between">
+                            <Text fontSize="sm" color="gray.600">Courses:</Text>
+                            <Text fontSize="sm" fontWeight="medium">
+                              {classItem.courses.length}
+                            </Text>
+                          </Flex>
+                        </VStack>
+                      </Box>
+                    ))}
+                    
+                    {currentLevel === 'courses' && selectedClass && selectedClass.courses.map(course => (
+                      <Box 
+                        key={course.id}
+                        onClick={isEditMode ? () => setItemToEdit(course) : () => handleCourseClick(course)}
+                        cursor="pointer"
+                        borderWidth="1px"
+                        borderRadius="lg"
+                        overflow="hidden"
+                        p={4}
+                        textAlign="center"
+                        transition="all 0.2s"
+                        position="relative"
+                        _hover={{ 
+                          transform: 'translateY(-4px)', 
+                          shadow: 'md',
+                          borderColor: '#640101' 
+                        }}
+                        bg={itemToEdit?.id === course.id && isEditMode ? "rgba(100, 1, 1, 0.05)" : "white"}
+                      >
+                        {isEditMode && itemToEdit?.id === course.id && (
+                          <Menu>
+                            <MenuButton
+                              as={IconButton}
+                              icon={<FaEllipsisV />}
+                              variant="ghost"
+                              size="sm"
+                              position="absolute"
+                              top={2}
+                              right={2}
+                              zIndex={2}
+                              aria-label="Options"
+                            />
+                            <MenuList minWidth="140px">
+                              <MenuItem 
+                                icon={<FaEdit />} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setItemToEdit(course);
+                                  setNewName(course.name);
+                                  setIsRenameModalOpen(true);
+                                }}
+                              >
+                                Rename
+                              </MenuItem>
+                              <MenuItem 
+                                icon={<FaTrash />} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setItemToEdit(course);
+                                  setIsDeleteModalOpen(true);
+                                }}
+                              >
+                                Delete
+                              </MenuItem>
+                            </MenuList>
+                          </Menu>
+                        )}
+                        <Box 
+                          p={2} 
+                          bg="#640101" 
+                          color="white" 
+                          width="100%" 
+                          borderTopRadius="md"
+                          mb={3}
+                        >
+                          <Icon as={FaFolder} fontSize="xl" mr={2} />
+                          <Text fontWeight="bold" display="inline">
+                            {course.name}
+                          </Text>
+                        </Box>
+                        <VStack align="stretch" spacing={2} textAlign="left">
+                          <Flex justify="space-between">
+                            <Text fontSize="sm" color="gray.600">Instructor:</Text>
+                            <Text fontSize="sm" fontWeight="medium">
+                              {course.instructor}
+                            </Text>
+                          </Flex>
+                          <Flex justify="space-between">
+                            <Text fontSize="sm" color="gray.600">Students:</Text>
+                            <Text fontSize="sm" fontWeight="medium">
+                              {course.enrolledStudents?.length || 0}
+                            </Text>
+                          </Flex>
+                          <Flex justify="space-between">
+                            <Text fontSize="sm" color="gray.600">Grade:</Text>
+                            <Text fontSize="sm" fontWeight="medium">
+                              {course.grade || "N/A"}
+                            </Text>
+                          </Flex>
+                        </VStack>
+                      </Box>
+                    ))}
+                  </SimpleGrid>
                 </Box>
-              ) : null}
-              
-              <Grid templateColumns={{ base: "1fr", md: "1fr", lg: "repeat(2, 1fr)" }} gap={4}>
-                {/* Left Box - Student List */}
-                <GridItem>
-                  <Box
-                    p={4}
-                    borderWidth="1px"
-                    borderRadius="lg"
-                    boxShadow="sm"
-                    bg="white"
-                    height="full"
-                  >
-                    <Heading size="md" mb={4} color="#640101">Student List</Heading>
-                    
-                    <InputGroup mb={4}>
-                      <InputLeftElement pointerEvents="none">
-                        <FaSearch color="#640101" />
-                      </InputLeftElement>
-                      <Input 
-                        placeholder="Search students..." 
-                        value={studentSearchTerm}
-                        onChange={(e) => setStudentSearchTerm(e.target.value)}
-                        borderColor="gray.300"
-                        _focus={{ borderColor: "#640101", boxShadow: "0 0 0 1px #640101" }}
-                      />
-                    </InputGroup>
-                    
-                    <Box height="500px" overflowY="auto" pr={1}>
-                      <Table variant="simple" size="sm" sx={{
-                        'th, td': {
-                          px: 2,
-                          py: 2,
-                          fontSize: 'sm'
-                        }
-                      }}>
-                        <Thead position="sticky" top={0} bg="white" zIndex={1}>
-                          <Tr>
-                            <Th width="30%">ID</Th>
-                            <Th width="55%">NAME</Th>
-                            <Th width="15%">SELECT</Th>
-                          </Tr>
-                        </Thead>
-                        <Tbody>
-                          {filteredStudentsForSelection.map((student) => (
-                            <Tr 
-                              key={student.id} 
-                              bg={selectedStudents.some(s => s.id === student.id) ? "rgba(100, 1, 1, 0.05)" : "transparent"}
-                              _hover={{ bg: "gray.50" }}
-                            >
-                              <Td>{student.id}</Td>
-                              <Td>{student.name}</Td>
-                              <Td>
-                                <IconButton 
-                                  icon={selectedStudents.some(s => s.id === student.id) ? <FaCheckCircle /> : <FaPlus />} 
-                                  size="sm" 
-                                  aria-label="Select student" 
-                                  onClick={() => toggleStudentSelection(student)}
-                                  sx={{
-                                    bg: selectedStudents.some(s => s.id === student.id) ? "green.500" : "white",
-                                    color: selectedStudents.some(s => s.id === student.id) ? "white" : "#640101",
-                                    borderColor: selectedStudents.some(s => s.id === student.id) ? "green.500" : "#640101",
-                                    borderWidth: "1px",
-                                    _hover: {
-                                      bg: selectedStudents.some(s => s.id === student.id) ? "green.600" : "gray.50"
-                                    }
-                                  }}
-                                />
-                              </Td>
-                            </Tr>
-                          ))}
-                        </Tbody>
-                      </Table>
-                    </Box>
-                  </Box>
-                </GridItem>
                 
-                {/* Right Side Boxes */}
-                <GridItem>
-                  <Grid templateRows="repeat(2, 1fr)" gap={5} height="full">
-                    {/* Upper Right Box - Select Grade */}
-                    <GridItem>
-                      <Box
-                        p={4}
-                        borderWidth="1px"
-                        borderRadius="lg"
-                        boxShadow="sm"
-                        bg="white"
-                        height="full"
+                {/* Modal for creating new item */}
+                <Modal isOpen={isOpen} onClose={onClose}>
+                  <ModalOverlay />
+                  <ModalContent>
+                    <ModalHeader>
+                      Create New {currentLevel === 'grades' ? 'Grade' : 
+                                 currentLevel === 'classes' ? 'Class' : 'Course'}
+                    </ModalHeader>
+                    <ModalCloseButton />
+                    <ModalBody>
+                      <FormControl>
+                        <FormLabel>
+                          {currentLevel === 'grades' ? 'Grade' : 
+                           currentLevel === 'classes' ? 'Class' : 'Course'} Name
+                        </FormLabel>
+                        <Input 
+                          value={newItemName}
+                          onChange={(e) => setNewItemName(e.target.value)}
+                          placeholder={`Enter ${currentLevel === 'grades' ? 'grade' : 
+                                        currentLevel === 'classes' ? 'class' : 'course'} name`}
+                        />
+                      </FormControl>
+                    </ModalBody>
+                    <ModalFooter>
+                      <Button variant="ghost" mr={3} onClick={onClose}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        colorScheme="red" 
+                        bg="#640101"
+                        onClick={handleCreateNewItem}
+                        isDisabled={!newItemName}
                       >
-                        <Heading size="md" mb={4} color="#640101">Select Grade</Heading>
-                        
-                        <Stack spacing={3}>
-                          <Text>Selected Students: {selectedStudents.length}</Text>
-                          
-                          <FormControl>
-                            <FormLabel>Grade to Assign</FormLabel>
-                            <Select 
-                              value={gradeToAssign}
-                              onChange={(e) => setGradeToAssign(e.target.value)}
-                              borderColor="gray.300"
-                              _focus={{ borderColor: "#640101", boxShadow: "0 0 0 1px #640101" }}
-                            >
-                              <option value="A+">A+</option>
-                              <option value="A">A</option>
-                              <option value="A-">A-</option>
-                              <option value="B+">B+</option>
-                              <option value="B">B</option>
-                              <option value="B-">B-</option>
-                              <option value="C+">C+</option>
-                              <option value="C">C</option>
-                              <option value="C-">C-</option>
-                              <option value="D">D</option>
-                              <option value="F">F</option>
-                            </Select>
-                          </FormControl>
-                          
-                          <Button 
-                            colorScheme="red" 
-                            bg="#640101"
-                            onClick={handleAssignGrade}
-                            isDisabled={selectedStudents.length === 0}
-                            width="100%"
-                          >
-                            Assign Grade
-                          </Button>
-                          
-                          <Box 
-                            mt={2} 
-                            borderWidth="1px" 
-                            borderRadius="md" 
-                            p={2} 
-                            height="140px" 
-                            overflowY="auto"
-                          >
-                            <Flex justify="space-between" align="center" mb={2}>
-                              <Text fontWeight="medium">Selected Students</Text>
-                              {selectedStudents.length > 0 && (
-                                <Button 
-                                  size="xs" 
-                                  colorScheme="gray" 
-                                  onClick={clearSelectedStudents}
-                                >
-                                  Clear All
-                                </Button>
-                              )}
-                            </Flex>
-                            {selectedStudents.length > 0 ? (
-                              <List spacing={1}>
-                                {selectedStudents.map(student => (
-                                  <ListItem key={student.id}>
-                                    <Flex justify="space-between">
-                                      <Text fontSize="sm">{student.name}</Text>
-                                      <Badge size="sm">{student.id}</Badge>
-                                    </Flex>
-                                  </ListItem>
-                                ))}
-                              </List>
-                            ) : (
-                              <Text color="gray.500" fontSize="sm">No students selected</Text>
-                            )}
-                          </Box>
-                        </Stack>
+                        Create
+                      </Button>
+                    </ModalFooter>
+                  </ModalContent>
+                </Modal>
+              </TabPanel>
+              
+              {/* Add Student Tab */}
+              <TabPanel>
+                {courseForEnrollment ? (
+                  <Box mb={4} p={3} borderWidth="1px" borderRadius="md" bg="blue.50">
+                    <Flex justify="space-between" align="center">
+                      <Box>
+                        <Heading size="sm">Enrolling Students in Course:</Heading>
+                        <Text fontWeight="medium">{courseForEnrollment.name}</Text>
+                        <Text fontSize="sm">Instructor: {courseForEnrollment.instructor}</Text>
                       </Box>
-                    </GridItem>
-                    
-                    {/* Lower Right Box - Select Class */}
-                    <GridItem>
-                      <Box
-                        p={4}
-                        borderWidth="1px"
-                        borderRadius="lg"
-                        boxShadow="sm"
-                        bg="white"
-                        height="full"
+                      <Button 
+                        colorScheme="blue" 
+                        size="sm"
+                        leftIcon={<FaUserGraduate />}
+                        onClick={handleEnrollSelectedStudents}
+                        isDisabled={selectedStudents.length === 0}
                       >
-                        <Heading size="md" mb={4} color="#640101">Select Class</Heading>
-                        
-                        <Stack spacing={3}>
-                          <Text>Selected Students: {selectedStudents.length}</Text>
-                          
-                          <FormControl>
-                            <FormLabel>Class to Assign</FormLabel>
-                            <Select 
-                              value={classToAssign}
-                              onChange={(e) => setClassToAssign(e.target.value)}
-                              borderColor="gray.300"
-                              _focus={{ borderColor: "#640101", boxShadow: "0 0 0 1px #640101" }}
-                            >
-                              <option value="Class 1">Class 1</option>
-                              <option value="Class 2">Class 2</option>
-                              <option value="Class 3">Class 3</option>
-                            </Select>
-                          </FormControl>
-                          
-                          <Button 
-                            colorScheme="red" 
-                            bg="#640101"
-                            onClick={handleAssignClass}
-                            isDisabled={selectedStudents.length === 0}
-                            width="100%"
-                          >
-                            Assign Class
-                          </Button>
-                          
-                          <Box 
-                            mt={2} 
-                            borderWidth="1px" 
-                            borderRadius="md" 
-                            p={2} 
-                            height="140px" 
-                            overflowY="auto"
-                          >
-                            <Flex justify="space-between" align="center" mb={2}>
-                              <Text fontWeight="medium">Selected Students</Text>
-                              {selectedStudents.length > 0 && (
-                                <Button 
-                                  size="xs" 
-                                  colorScheme="gray" 
-                                  onClick={clearSelectedStudents}
-                                >
-                                  Clear All
-                                </Button>
-                              )}
-                            </Flex>
-                            {selectedStudents.length > 0 ? (
-                              <List spacing={1}>
-                                {selectedStudents.map(student => (
-                                  <ListItem key={student.id}>
-                                    <Flex justify="space-between">
-                                      <Text fontSize="sm">{student.name}</Text>
-                                      <Badge size="sm">{student.id}</Badge>
-                                    </Flex>
-                                  </ListItem>
-                                ))}
-                              </List>
-                            ) : (
-                              <Text color="gray.500" fontSize="sm">No students selected</Text>
-                            )}
-                          </Box>
-                        </Stack>
+                        Enroll Selected ({selectedStudents.length})
+                      </Button>
+                    </Flex>
+                  </Box>
+                ) : null}
+                
+                <Grid templateColumns={{ base: "1fr", md: "1fr", lg: "repeat(2, 1fr)" }} gap={4}>
+                  {/* Left Box - Student List */}
+                  <GridItem>
+                    <Box
+                      p={4}
+                      borderWidth="1px"
+                      borderRadius="lg"
+                      boxShadow="sm"
+                      bg="white"
+                      height="full"
+                    >
+                      <Heading size="md" mb={4} color="#640101">Student List</Heading>
+                      
+                      <InputGroup mb={4}>
+                        <InputLeftElement pointerEvents="none">
+                          <FaSearch color="#640101" />
+                        </InputLeftElement>
+                        <Input 
+                          placeholder="Search students..." 
+                          value={studentSearchTerm}
+                          onChange={(e) => setStudentSearchTerm(e.target.value)}
+                          borderColor="gray.300"
+                          _focus={{ borderColor: "#640101", boxShadow: "0 0 0 1px #640101" }}
+                        />
+                      </InputGroup>
+                      
+                      <Box height="500px" overflowY="auto" pr={1}>
+                        <Table variant="simple" size="sm" sx={{
+                          'th, td': {
+                            px: 2,
+                            py: 2,
+                            fontSize: 'sm'
+                          }
+                        }}>
+                          <Thead position="sticky" top={0} bg="white" zIndex={1}>
+                            <Tr>
+                              <Th width="30%">ID</Th>
+                              <Th width="55%">NAME</Th>
+                              <Th width="15%">SELECT</Th>
+                            </Tr>
+                          </Thead>
+                          <Tbody>
+                            {filteredStudentsForSelection.map((student) => (
+                              <Tr 
+                                key={student.id} 
+                                bg={selectedStudents.some(s => s.id === student.id) ? "rgba(100, 1, 1, 0.05)" : "transparent"}
+                                _hover={{ bg: "gray.50" }}
+                              >
+                                <Td>{student.id}</Td>
+                                <Td>{student.name}</Td>
+                                <Td>
+                                  <IconButton 
+                                    icon={selectedStudents.some(s => s.id === student.id) ? <FaCheckCircle /> : <FaPlus />} 
+                                    size="sm" 
+                                    aria-label="Select student" 
+                                    onClick={() => toggleStudentSelection(student)}
+                                    sx={{
+                                      bg: selectedStudents.some(s => s.id === student.id) ? "green.500" : "white",
+                                      color: selectedStudents.some(s => s.id === student.id) ? "white" : "#640101",
+                                      borderColor: selectedStudents.some(s => s.id === student.id) ? "green.500" : "#640101",
+                                      borderWidth: "1px",
+                                      _hover: {
+                                        bg: selectedStudents.some(s => s.id === student.id) ? "green.600" : "gray.50"
+                                      }
+                                    }}
+                                  />
+                                </Td>
+                              </Tr>
+                            ))}
+                          </Tbody>
+                        </Table>
                       </Box>
-                    </GridItem>
-                  </Grid>
-                </GridItem>
-              </Grid>
-            </TabPanel>
-          </TabPanels>
-        </Tabs>
-      </Container>
+                    </Box>
+                  </GridItem>
+                  
+                  {/* Right Side Boxes */}
+                  <GridItem>
+                    <Grid templateRows="repeat(2, 1fr)" gap={5} height="full">
+                      {/* Upper Right Box - Select Grade */}
+                      <GridItem>
+                        <Box
+                          p={4}
+                          borderWidth="1px"
+                          borderRadius="lg"
+                          boxShadow="sm"
+                          bg="white"
+                          height="full"
+                        >
+                          <Heading size="md" mb={4} color="#640101">Select Grade</Heading>
+                          
+                          <Stack spacing={3}>
+                            <Text>Selected Students: {selectedStudents.length}</Text>
+                            
+                            <FormControl>
+                              <FormLabel>Grade to Assign</FormLabel>
+                              <Select 
+                                value={gradeToAssign}
+                                onChange={(e) => setGradeToAssign(e.target.value)}
+                                borderColor="gray.300"
+                                _focus={{ borderColor: "#640101", boxShadow: "0 0 0 1px #640101" }}
+                              >
+                                <option value="A+">A+</option>
+                                <option value="A">A</option>
+                                <option value="A-">A-</option>
+                                <option value="B+">B+</option>
+                                <option value="B">B</option>
+                                <option value="B-">B-</option>
+                                <option value="C+">C+</option>
+                                <option value="C">C</option>
+                                <option value="C-">C-</option>
+                                <option value="D">D</option>
+                                <option value="F">F</option>
+                              </Select>
+                            </FormControl>
+                            
+                            <Button 
+                              colorScheme="red" 
+                              bg="#640101"
+                              onClick={handleAssignGrade}
+                              isDisabled={selectedStudents.length === 0}
+                              width="100%"
+                            >
+                              Assign Grade
+                            </Button>
+                            
+                            <Box 
+                              mt={2} 
+                              borderWidth="1px" 
+                              borderRadius="md" 
+                              p={2} 
+                              height="140px" 
+                              overflowY="auto"
+                            >
+                              <Flex justify="space-between" align="center" mb={2}>
+                                <Text fontWeight="medium">Selected Students</Text>
+                                {selectedStudents.length > 0 && (
+                                  <Button 
+                                    size="xs" 
+                                    colorScheme="gray" 
+                                    onClick={clearSelectedStudents}
+                                  >
+                                    Clear All
+                                  </Button>
+                                )}
+                              </Flex>
+                              {selectedStudents.length > 0 ? (
+                                <List spacing={1}>
+                                  {selectedStudents.map(student => (
+                                    <ListItem key={student.id}>
+                                      <Flex justify="space-between">
+                                        <Text fontSize="sm">{student.name}</Text>
+                                        <Badge size="sm">{student.id}</Badge>
+                                      </Flex>
+                                    </ListItem>
+                                  ))}
+                                </List>
+                              ) : (
+                                <Text color="gray.500" fontSize="sm">No students selected</Text>
+                              )}
+                            </Box>
+                          </Stack>
+                        </Box>
+                      </GridItem>
+                      
+                      {/* Lower Right Box - Select Class */}
+                      <GridItem>
+                        <Box
+                          p={4}
+                          borderWidth="1px"
+                          borderRadius="lg"
+                          boxShadow="sm"
+                          bg="white"
+                          height="full"
+                        >
+                          <Heading size="md" mb={4} color="#640101">Select Class</Heading>
+                          
+                          <Stack spacing={3}>
+                            <Text>Selected Students: {selectedStudents.length}</Text>
+                            
+                            <FormControl>
+                              <FormLabel>Class to Assign</FormLabel>
+                              <Select 
+                                value={classToAssign}
+                                onChange={(e) => setClassToAssign(e.target.value)}
+                                borderColor="gray.300"
+                                _focus={{ borderColor: "#640101", boxShadow: "0 0 0 1px #640101" }}
+                              >
+                                <option value="Class 1">Class 1</option>
+                                <option value="Class 2">Class 2</option>
+                                <option value="Class 3">Class 3</option>
+                              </Select>
+                            </FormControl>
+                            
+                            <Button 
+                              colorScheme="red" 
+                              bg="#640101"
+                              onClick={handleAssignClass}
+                              isDisabled={selectedStudents.length === 0}
+                              width="100%"
+                            >
+                              Assign Class
+                            </Button>
+                            
+                            <Box 
+                              mt={2} 
+                              borderWidth="1px" 
+                              borderRadius="md" 
+                              p={2} 
+                              height="140px" 
+                              overflowY="auto"
+                            >
+                              <Flex justify="space-between" align="center" mb={2}>
+                                <Text fontWeight="medium">Selected Students</Text>
+                                {selectedStudents.length > 0 && (
+                                  <Button 
+                                    size="xs" 
+                                    colorScheme="gray" 
+                                    onClick={clearSelectedStudents}
+                                  >
+                                    Clear All
+                                  </Button>
+                                )}
+                              </Flex>
+                              {selectedStudents.length > 0 ? (
+                                <List spacing={1}>
+                                  {selectedStudents.map(student => (
+                                    <ListItem key={student.id}>
+                                      <Flex justify="space-between">
+                                        <Text fontSize="sm">{student.name}</Text>
+                                        <Badge size="sm">{student.id}</Badge>
+                                      </Flex>
+                                    </ListItem>
+                                  ))}
+                                </List>
+                              ) : (
+                                <Text color="gray.500" fontSize="sm">No students selected</Text>
+                              )}
+                            </Box>
+                          </Stack>
+                        </Box>
+                      </GridItem>
+                    </Grid>
+                  </GridItem>
+                </Grid>
+              </TabPanel>
+            </TabPanels>
+          </Tabs>
+        </Container>
+      </Box>
       
       {/* Floating Edit Button */}
       {tabIndex === 1 && (

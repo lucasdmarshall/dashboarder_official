@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { 
   Box, 
   Container, 
@@ -24,6 +26,7 @@ import {
   Td, 
   Badge, 
   Button,
+  Spinner,
   List,
   ListItem,
   ListIcon,
@@ -58,7 +61,8 @@ import {
   Menu,
   MenuButton,
   MenuList,
-  MenuItem
+  MenuItem,
+  VStack
 } from '@chakra-ui/react';
 import InstitutionSidebar from '../components/InstitutionSidebar';
 import { 
@@ -88,10 +92,18 @@ import {
   FaPencilAlt
 } from 'react-icons/fa';
 
+// API base URL
+const API_URL = 'http://localhost:5001/api';
+
 const InstitutionDashboard = () => {
+  const { institutionId } = useParams();
+  const navigate = useNavigate();
   const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [tabIndex, setTabIndex] = useState(0);
+  const [institution, setInstitution] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [newStudent, setNewStudent] = useState({
     name: '',
     id: '',
@@ -113,41 +125,162 @@ const InstitutionDashboard = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
+
+  // Fetch institution data when component mounts or institutionId changes
+  useEffect(() => {
+    const fetchInstitutionData = async () => {
+      if (!institutionId) {
+        // If no institution ID is provided, check if user is logged in as institution
+        const userRole = localStorage.getItem('userRole');
+        const userId = localStorage.getItem('userId');
+        
+        if (userRole === 'institution' && userId) {
+          // Redirect to the institution-specific dashboard
+          navigate(`/institution-dashboard/${userId}`);
+          return;
+        }
+        
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Get auth token from localStorage
+        const authToken = localStorage.getItem('authToken');
+        
+        // Set up headers with auth token
+        const headers = authToken ? {
+          'Authorization': `Bearer ${authToken}`
+        } : {};
+        
+        // Fetch institution data
+        const response = await axios.get(`${API_URL}/institutions/${institutionId}`, { headers });
+        
+        setInstitution(response.data.institution);
+        
+        // You can fetch additional data specific to this institution here
+        // Such as students, courses, etc.
+        
+        toast({
+          title: "Dashboard Loaded",
+          description: `Welcome to ${response.data.institution.name}'s dashboard`,
+          status: "success",
+          duration: 3000,
+          isClosable: true
+        });
+      } catch (err) {
+        console.error('Error fetching institution data:', err);
+        setError('Failed to load institution data. Please try again later.');
+        
+        toast({
+          title: "Error",
+          description: err.response?.data?.message || "Failed to load institution data",
+          status: "error",
+          duration: 5000,
+          isClosable: true
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchInstitutionData();
+  }, [institutionId, navigate, toast]);
+  
   const [grades, setGrades] = useState([
     { id: 1, name: 'Grade 1', classes: [
       { id: 1, name: 'Class 1A', courses: [
-        { id: 1, name: 'Mathematics' },
-        { id: 2, name: 'Science' },
-        { id: 3, name: 'English' }
+        { id: 1, name: 'Mathematics', description: 'Basic mathematics concepts', instructor: 'Dr. Johnson', status: 'active', enrolledStudents: [
+          { id: "ST001", name: "John Doe", email: "john.doe@example.com", grade: "A" },
+          { id: "ST003", name: "Michael Johnson", email: "michael.j@example.com", grade: "A-" },
+          { id: "ST006", name: "Sarah Davis", email: "sarah.d@example.com", grade: "A+" }
+        ]},
+        { id: 2, name: 'Science', description: 'Introduction to natural sciences', instructor: 'Prof. Smith', status: 'active', enrolledStudents: [
+          { id: "ST001", name: "John Doe", email: "john.doe@example.com", grade: "B+" },
+          { id: "ST006", name: "Sarah Davis", email: "sarah.d@example.com", grade: "A" }
+        ]},
+        { id: 3, name: 'English', description: 'English language fundamentals', instructor: 'Ms. Williams', status: 'active', enrolledStudents: [
+          { id: "ST003", name: "Michael Johnson", email: "michael.j@example.com", grade: "B" },
+          { id: "ST006", name: "Sarah Davis", email: "sarah.d@example.com", grade: "A-" }
+        ]}
       ]},
       { id: 2, name: 'Class 1B', courses: [
-        { id: 4, name: 'Mathematics' },
-        { id: 5, name: 'Science' },
-        { id: 6, name: 'History' }
+        { id: 4, name: 'Mathematics', description: 'Basic mathematics concepts', instructor: 'Dr. Johnson', status: 'active', enrolledStudents: [
+          { id: "ST002", name: "Jane Smith", email: "jane.smith@example.com", grade: "B+" },
+          { id: "ST005", name: "Robert Brown", email: "robert.b@example.com", grade: "C+" }
+        ]},
+        { id: 5, name: 'Science', description: 'Introduction to natural sciences', instructor: 'Prof. Smith', status: 'active', enrolledStudents: [
+          { id: "ST002", name: "Jane Smith", email: "jane.smith@example.com", grade: "A-" },
+          { id: "ST005", name: "Robert Brown", email: "robert.b@example.com", grade: "B" },
+          { id: "ST008", name: "Jennifer Wilson", email: "jennifer.w@example.com", grade: "A" }
+        ]},
+        { id: 6, name: 'History', description: 'World history overview', instructor: 'Dr. Adams', status: 'active', enrolledStudents: [
+          { id: "ST005", name: "Robert Brown", email: "robert.b@example.com", grade: "B-" },
+          { id: "ST008", name: "Jennifer Wilson", email: "jennifer.w@example.com", grade: "A-" }
+        ]}
       ]}
     ]},
     { id: 2, name: 'Grade 2', classes: [
       { id: 3, name: 'Class 2A', courses: [
-        { id: 7, name: 'Mathematics' },
-        { id: 8, name: 'Science' },
-        { id: 9, name: 'Geography' }
+        { id: 7, name: 'Mathematics', description: 'Intermediate mathematics', instructor: 'Dr. Peterson', status: 'active', enrolledStudents: [
+          { id: "ST004", name: "Emily Williams", email: "emily.w@example.com", grade: "B+" },
+          { id: "ST007", name: "James Miller", email: "james.m@example.com", grade: "B-" }
+        ]},
+        { id: 8, name: 'Science', description: 'Natural sciences exploration', instructor: 'Dr. Rodriguez', status: 'active', enrolledStudents: [
+          { id: "ST004", name: "Emily Williams", email: "emily.w@example.com", grade: "A-" },
+          { id: "ST007", name: "James Miller", email: "james.m@example.com", grade: "C+" }
+        ]},
+        { id: 9, name: 'Geography', description: 'World geography fundamentals', instructor: 'Prof. Clark', status: 'active', enrolledStudents: [
+          { id: "ST004", name: "Emily Williams", email: "emily.w@example.com", grade: "B" },
+          { id: "ST007", name: "James Miller", email: "james.m@example.com", grade: "B" }
+        ]}
       ]},
       { id: 4, name: 'Class 2B', courses: [
-        { id: 10, name: 'Mathematics' },
-        { id: 11, name: 'Science' },
-        { id: 12, name: 'Art' }
+        { id: 10, name: 'Mathematics', description: 'Intermediate mathematics', instructor: 'Dr. Peterson', status: 'active', enrolledStudents: [
+          { id: "ST002", name: "Jane Smith", email: "jane.smith@example.com", grade: "A" },
+          { id: "ST008", name: "Jennifer Wilson", email: "jennifer.w@example.com", grade: "B+" }
+        ]},
+        { id: 11, name: 'Science', description: 'Natural sciences exploration', instructor: 'Dr. Rodriguez', status: 'active', enrolledStudents: [
+          { id: "ST002", name: "Jane Smith", email: "jane.smith@example.com", grade: "B+" },
+          { id: "ST008", name: "Jennifer Wilson", email: "jennifer.w@example.com", grade: "A-" }
+        ]},
+        { id: 12, name: 'Art', description: 'Visual arts and expression', instructor: 'Ms. Martinez', status: 'active', enrolledStudents: [
+          { id: "ST002", name: "Jane Smith", email: "jane.smith@example.com", grade: "A+" },
+          { id: "ST008", name: "Jennifer Wilson", email: "jennifer.w@example.com", grade: "A" }
+        ]}
       ]}
     ]},
     { id: 3, name: 'Grade 3', classes: [
       { id: 5, name: 'Class 3A', courses: [
-        { id: 13, name: 'Mathematics' },
-        { id: 14, name: 'Science' },
-        { id: 15, name: 'Music' }
+        { id: 13, name: 'Mathematics', description: 'Advanced mathematics concepts', instructor: 'Prof. Thompson', status: 'active', enrolledStudents: [
+          { id: "ST001", name: "John Doe", email: "john.doe@example.com", grade: "B" },
+          { id: "ST005", name: "Robert Brown", email: "robert.b@example.com", grade: "C" }
+        ]},
+        { id: 14, name: 'Science', description: 'Advanced scientific principles', instructor: 'Dr. Richardson', status: 'active', enrolledStudents: [
+          { id: "ST001", name: "John Doe", email: "john.doe@example.com", grade: "B+" },
+          { id: "ST005", name: "Robert Brown", email: "robert.b@example.com", grade: "B-" }
+        ]},
+        { id: 15, name: 'Music', description: 'Music theory and practice', instructor: 'Mr. Wilson', status: 'active', enrolledStudents: [
+          { id: "ST001", name: "John Doe", email: "john.doe@example.com", grade: "A-" },
+          { id: "ST005", name: "Robert Brown", email: "robert.b@example.com", grade: "B+" }
+        ]}
       ]},
       { id: 6, name: 'Class 3B', courses: [
-        { id: 16, name: 'Mathematics' },
-        { id: 17, name: 'Science' },
-        { id: 18, name: 'Physical Education' }
+        { id: 16, name: 'Mathematics', description: 'Advanced mathematics concepts', instructor: 'Prof. Thompson', status: 'active', enrolledStudents: [
+          { id: "ST003", name: "Michael Johnson", email: "michael.j@example.com", grade: "A" },
+          { id: "ST006", name: "Sarah Davis", email: "sarah.d@example.com", grade: "A-" }
+        ]},
+        { id: 17, name: 'Science', description: 'Advanced scientific principles', instructor: 'Dr. Richardson', status: 'active', enrolledStudents: [
+          { id: "ST003", name: "Michael Johnson", email: "michael.j@example.com", grade: "B+" },
+          { id: "ST006", name: "Sarah Davis", email: "sarah.d@example.com", grade: "A" }
+        ]},
+        { id: 18, name: 'Physical Education', description: 'Physical fitness and sports', instructor: 'Coach Roberts', status: 'active', enrolledStudents: [
+          { id: "ST003", name: "Michael Johnson", email: "michael.j@example.com", grade: "A+" },
+          { id: "ST006", name: "Sarah Davis", email: "sarah.d@example.com", grade: "A" }
+        ]}
       ]}
     ]}
   ]);
@@ -655,6 +788,362 @@ const InstitutionDashboard = () => {
     }
   };
 
+  // Variable for selected course details
+  const [selectedCourse, setSelectedCourse] = useState(null);
+  const [isCourseDetailOpen, setIsCourseDetailOpen] = useState(false);
+
+  // Function to handle course click
+  const handleCourseClick = (course) => {
+    setSelectedCourse(course);
+    setIsCourseDetailOpen(true);
+  };
+
+  // Function to handle adding a student to a course
+  const handleAddStudentToCourse = (student) => {
+    if (!selectedCourse) return;
+    
+    // Check if student is already enrolled
+    if (selectedCourse.enrolledStudents.some(s => s.id === student.id)) {
+      toast({
+        title: "Student Already Enrolled",
+        description: `${student.name} is already enrolled in this course.`,
+        status: "warning",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+    
+    // Create updated grades with the new student added to the course
+    const updatedGrades = grades.map(grade => {
+      if (grade.id === selectedGrade.id) {
+        return {
+          ...grade,
+          classes: grade.classes.map(classItem => {
+            if (classItem.id === selectedClass.id) {
+              return {
+                ...classItem,
+                courses: classItem.courses.map(course => {
+                  if (course.id === selectedCourse.id) {
+                    return {
+                      ...course,
+                      enrolledStudents: [...course.enrolledStudents, { ...student, grade: "N/A" }]
+                    };
+                  }
+                  return course;
+                })
+              };
+            }
+            return classItem;
+          })
+        };
+      }
+      return grade;
+    });
+    
+    // Update state
+    setGrades(updatedGrades);
+    
+    // Update selected course
+    setSelectedCourse({
+      ...selectedCourse,
+      enrolledStudents: [...selectedCourse.enrolledStudents, { ...student, grade: "N/A" }]
+    });
+    
+    toast({
+      title: "Student Enrolled",
+      description: `${student.name} has been enrolled in ${selectedCourse.name}.`,
+      status: "success",
+      duration: 3000,
+      isClosable: true,
+    });
+  };
+  
+  // Function to handle removing a student from a course
+  const handleRemoveStudentFromCourse = (studentId) => {
+    if (!selectedCourse) return;
+    
+    // Find student name for the toast message
+    const studentToRemove = selectedCourse.enrolledStudents.find(s => s.id === studentId);
+    if (!studentToRemove) return;
+    
+    // Create updated grades with the student removed from the course
+    const updatedGrades = grades.map(grade => {
+      if (grade.id === selectedGrade.id) {
+        return {
+          ...grade,
+          classes: grade.classes.map(classItem => {
+            if (classItem.id === selectedClass.id) {
+              return {
+                ...classItem,
+                courses: classItem.courses.map(course => {
+                  if (course.id === selectedCourse.id) {
+                    return {
+                      ...course,
+                      enrolledStudents: course.enrolledStudents.filter(student => student.id !== studentId)
+                    };
+                  }
+                  return course;
+                })
+              };
+            }
+            return classItem;
+          })
+        };
+      }
+      return grade;
+    });
+    
+    // Update state
+    setGrades(updatedGrades);
+    
+    // Update selected course
+    setSelectedCourse({
+      ...selectedCourse,
+      enrolledStudents: selectedCourse.enrolledStudents.filter(student => student.id !== studentId)
+    });
+    
+    toast({
+      title: "Student Removed",
+      description: `${studentToRemove.name} has been removed from ${selectedCourse.name}.`,
+      status: "info",
+      duration: 3000,
+      isClosable: true,
+    });
+  };
+  
+  // Function to update a student's grade in a course
+  const handleUpdateStudentGrade = (studentId, newGrade) => {
+    if (!selectedCourse) return;
+    
+    // Create updated grades with the student's grade updated
+    const updatedGrades = grades.map(grade => {
+      if (grade.id === selectedGrade.id) {
+        return {
+          ...grade,
+          classes: grade.classes.map(classItem => {
+            if (classItem.id === selectedClass.id) {
+              return {
+                ...classItem,
+                courses: classItem.courses.map(course => {
+                  if (course.id === selectedCourse.id) {
+                    return {
+                      ...course,
+                      enrolledStudents: course.enrolledStudents.map(student => {
+                        if (student.id === studentId) {
+                          return { ...student, grade: newGrade };
+                        }
+                        return student;
+                      })
+                    };
+                  }
+                  return course;
+                })
+              };
+            }
+            return classItem;
+          })
+        };
+      }
+      return grade;
+    });
+    
+    // Update state
+    setGrades(updatedGrades);
+    
+    // Update selected course
+    setSelectedCourse({
+      ...selectedCourse,
+      enrolledStudents: selectedCourse.enrolledStudents.map(student => {
+        if (student.id === studentId) {
+          return { ...student, grade: newGrade };
+        }
+        return student;
+      })
+    });
+    
+    toast({
+      title: "Grade Updated",
+      description: `Student's grade has been updated to ${newGrade}.`,
+      status: "success",
+      duration: 3000,
+      isClosable: true,
+    });
+  };
+
+  const [courseForEnrollment, setCourseForEnrollment] = useState(null);
+
+  // Clear selected course for enrollment when changing tabs
+  const handleTabChange = (index) => {
+    setTabIndex(index);
+    if (index !== 2) { // If not on the Add Student tab
+      setCourseForEnrollment(null);
+    }
+  };
+
+  // Handle enrolling selected students in the current course
+  const handleEnrollSelectedStudents = () => {
+    if (!courseForEnrollment || selectedStudents.length === 0) {
+      toast({
+        title: "Cannot Enroll Students",
+        description: "Please select a course and at least one student.",
+        status: "warning",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+    
+    // Find the grade and class for the course
+    let foundGrade = null;
+    let foundClass = null;
+    
+    for (const grade of grades) {
+      for (const classItem of grade.classes) {
+        for (const course of classItem.courses) {
+          if (course.id === courseForEnrollment.id) {
+            foundGrade = grade;
+            foundClass = classItem;
+            break;
+          }
+        }
+        if (foundClass) break;
+      }
+      if (foundGrade) break;
+    }
+    
+    if (!foundGrade || !foundClass) {
+      toast({
+        title: "Error",
+        description: "Could not find the selected course.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+    
+    // Filter out students who are already enrolled
+    const newStudents = selectedStudents.filter(student => 
+      !courseForEnrollment.enrolledStudents.some(enrolled => enrolled.id === student.id)
+    );
+    
+    if (newStudents.length === 0) {
+      toast({
+        title: "No New Students",
+        description: "All selected students are already enrolled in this course.",
+        status: "info",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+    
+    // Add new students to the course
+    const studentsToAdd = newStudents.map(student => ({
+      ...student,
+      grade: "N/A"
+    }));
+    
+    // Update grades state
+    const updatedGrades = grades.map(grade => {
+      if (grade.id === foundGrade.id) {
+        return {
+          ...grade,
+          classes: grade.classes.map(classItem => {
+            if (classItem.id === foundClass.id) {
+              return {
+                ...classItem,
+                courses: classItem.courses.map(course => {
+                  if (course.id === courseForEnrollment.id) {
+                    return {
+                      ...course,
+                      enrolledStudents: [...course.enrolledStudents, ...studentsToAdd]
+                    };
+                  }
+                  return course;
+                })
+              };
+            }
+            return classItem;
+          })
+        };
+      }
+      return grade;
+    });
+    
+    setGrades(updatedGrades);
+    
+    // Also update the currently selected course if it's the same one
+    if (selectedCourse && selectedCourse.id === courseForEnrollment.id) {
+      setSelectedCourse({
+        ...selectedCourse,
+        enrolledStudents: [...selectedCourse.enrolledStudents, ...studentsToAdd]
+      });
+    }
+    
+    // Update courseForEnrollment
+    setCourseForEnrollment({
+      ...courseForEnrollment,
+      enrolledStudents: [...courseForEnrollment.enrolledStudents, ...studentsToAdd]
+    });
+    
+    toast({
+      title: "Students Enrolled",
+      description: `Successfully enrolled ${newStudents.length} student(s) in ${courseForEnrollment.name}.`,
+      status: "success",
+      duration: 3000,
+      isClosable: true,
+    });
+    
+    // Clear selected students
+    clearSelectedStudents();
+    
+    // Return to the Grade tab
+    setTabIndex(1);
+    setIsCourseDetailOpen(true); // Reopen the course details modal
+  };
+
+  // Render loading state if data is being fetched
+  if (loading) {
+    return (
+      <Box bg="gray.50" minH="100vh" display="flex" alignItems="center" justifyContent="center">
+        <Flex direction="column" align="center">
+          <Spinner size="xl" color="#640101" thickness="4px" speed="0.65s" />
+          <Text mt={4} fontSize="lg">Loading institution dashboard...</Text>
+        </Flex>
+      </Box>
+    );
+  }
+  
+  // Render error state if there was an error fetching data
+  if (error) {
+    return (
+      <Box bg="gray.50" minH="100vh" display="flex" alignItems="center" justifyContent="center">
+        <Flex direction="column" align="center" p={8} bg="white" borderRadius="md" boxShadow="md">
+          <Icon as={FaExclamationTriangle} boxSize={12} color="red.500" mb={4} />
+          <Heading size="md" mb={2}>Error Loading Dashboard</Heading>
+          <Text mb={4}>{error}</Text>
+          <Button colorScheme="red" onClick={() => window.location.reload()}>Try Again</Button>
+        </Flex>
+      </Box>
+    );
+  }
+  
+  // If no institution ID was provided and user is not logged in as an institution
+  if (!institutionId && !institution) {
+    return (
+      <Box bg="gray.50" minH="100vh" display="flex" alignItems="center" justifyContent="center">
+        <Flex direction="column" align="center" p={8} bg="white" borderRadius="md" boxShadow="md">
+          <Icon as={FaInfoCircle} boxSize={12} color="blue.500" mb={4} />
+          <Heading size="md" mb={2}>Institution Dashboard</Heading>
+          <Text mb={4}>Please select an institution or log in as an institution to view the dashboard.</Text>
+          <Button colorScheme="blue" onClick={() => navigate('/')}>Go to Home</Button>
+        </Flex>
+      </Box>
+    );
+  }
+  
   return (
     <Box>
       <InstitutionSidebar />
@@ -666,12 +1155,21 @@ const InstitutionDashboard = () => {
         pl={{ base: 1, md: 3 }}
         overflow="hidden"
       >
+        {/* Welcome message banner */}
+        <Box mb={4} p={3} bg="#640101" color="white" borderRadius="md" boxShadow="sm">
+          <Heading size="md">Welcome {institution?.name || localStorage.getItem('userName') || 'to Institution Dashboard'}</Heading>
+          <Text fontSize="sm" mt={1}>Manage your institution's resources and students</Text>
+        </Box>
+        
         <Box mb={5}>
           <Heading as="h1" size="xl" mb={2} color="#640101">Class Division</Heading>
           <Text color="gray.600">Manage students, grades and classes</Text>
         </Box>
+      </Container>
+    </Box>
+  );
 
-        <Tabs isFitted variant="enclosed" colorScheme="red" index={tabIndex} onChange={(index) => setTabIndex(index)}>
+        <Tabs isFitted variant="enclosed" colorScheme="red" index={tabIndex} onChange={handleTabChange}>
           <TabList mb="1em">
             <Tab _selected={{ color: "white", bg: "#640101" }} fontWeight="medium">Student List</Tab>
             <Tab _selected={{ color: "white", bg: "#640101" }} fontWeight="medium">Grade</Tab>
@@ -869,6 +1367,7 @@ const InstitutionDashboard = () => {
                               icon={<FaEdit />} 
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setItemToEdit(grade);
                                 setNewName(grade.name);
                                 setIsRenameModalOpen(true);
                               }}
@@ -879,6 +1378,7 @@ const InstitutionDashboard = () => {
                               icon={<FaTrash />} 
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setItemToEdit(grade);
                                 setIsDeleteModalOpen(true);
                               }}
                             >
@@ -887,9 +1387,48 @@ const InstitutionDashboard = () => {
                           </MenuList>
                         </Menu>
                       )}
-                      <Icon as={FaFolder} fontSize="4xl" color="#640101" mb={3} />
-                      <Text fontWeight="medium">{grade.name}</Text>
-                      <Text fontSize="sm" color="gray.500">{grade.classes.length} classes</Text>
+                      <Box 
+                        p={2} 
+                        bg="#640101" 
+                        color="white" 
+                        width="100%" 
+                        borderTopRadius="md"
+                        mb={3}
+                      >
+                        <Icon as={FaFolder} fontSize="xl" mr={2} />
+                        <Text fontWeight="bold" display="inline">
+                          {grade.name}
+                        </Text>
+                      </Box>
+                      <VStack align="stretch" spacing={2} textAlign="left">
+                        <Flex justify="space-between">
+                          <Text fontSize="sm" color="gray.600">Instructor:</Text>
+                          <Text fontSize="sm" fontWeight="medium">
+                            {grade.classes[0]?.courses[0]?.instructor || "Dr. John Smith"}
+                          </Text>
+                        </Flex>
+                        <Flex justify="space-between">
+                          <Text fontSize="sm" color="gray.600">Students:</Text>
+                          <Text fontSize="sm" fontWeight="medium">
+                            {grade.classes.reduce((total, cls) => 
+                              total + cls.courses.reduce((t, c) => 
+                                t + (c.enrolledStudents?.length || 0), 0), 0) || 3}
+                          </Text>
+                        </Flex>
+                        <Flex justify="space-between">
+                          <Text fontSize="sm" color="gray.600">Grading Periods:</Text>
+                          <Text fontSize="sm" fontWeight="medium">
+                            {grade.id === 1 ? 2 : 4}
+                          </Text>
+                        </Flex>
+                        <Flex justify="space-between">
+                          <Text fontSize="sm" color="gray.600">Courses:</Text>
+                          <Text fontSize="sm" fontWeight="medium">
+                            {grade.classes.reduce((total, cls) => 
+                              total + cls.courses.length, 0) || 8}
+                          </Text>
+                        </Flex>
+                      </VStack>
                     </Box>
                   ))}
                   
@@ -930,6 +1469,7 @@ const InstitutionDashboard = () => {
                               icon={<FaEdit />} 
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setItemToEdit(classItem);
                                 setNewName(classItem.name);
                                 setIsRenameModalOpen(true);
                               }}
@@ -940,6 +1480,7 @@ const InstitutionDashboard = () => {
                               icon={<FaTrash />} 
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setItemToEdit(classItem);
                                 setIsDeleteModalOpen(true);
                               }}
                             >
@@ -948,16 +1489,47 @@ const InstitutionDashboard = () => {
                           </MenuList>
                         </Menu>
                       )}
-                      <Icon as={FaFolder} fontSize="4xl" color="#640101" mb={3} />
-                      <Text fontWeight="medium">{classItem.name}</Text>
-                      <Text fontSize="sm" color="gray.500">{classItem.courses.length} courses</Text>
+                      <Box 
+                        p={2} 
+                        bg="#640101" 
+                        color="white" 
+                        width="100%" 
+                        borderTopRadius="md"
+                        mb={3}
+                      >
+                        <Icon as={FaFolder} fontSize="xl" mr={2} />
+                        <Text fontWeight="bold" display="inline">
+                          {classItem.name}
+                        </Text>
+                      </Box>
+                      <VStack align="stretch" spacing={2} textAlign="left">
+                        <Flex justify="space-between">
+                          <Text fontSize="sm" color="gray.600">Instructor:</Text>
+                          <Text fontSize="sm" fontWeight="medium">
+                            {classItem.courses[0]?.instructor || "Dr. John Smith"}
+                          </Text>
+                        </Flex>
+                        <Flex justify="space-between">
+                          <Text fontSize="sm" color="gray.600">Students:</Text>
+                          <Text fontSize="sm" fontWeight="medium">
+                            {classItem.courses.reduce((total, c) => 
+                              total + (c.enrolledStudents?.length || 0), 0) || 3}
+                          </Text>
+                        </Flex>
+                        <Flex justify="space-between">
+                          <Text fontSize="sm" color="gray.600">Courses:</Text>
+                          <Text fontSize="sm" fontWeight="medium">
+                            {classItem.courses.length || 8}
+                          </Text>
+                        </Flex>
+                      </VStack>
                     </Box>
                   ))}
                   
                   {currentLevel === 'courses' && selectedClass && selectedClass.courses.map(course => (
                     <Box 
                       key={course.id}
-                      onClick={isEditMode ? () => setItemToEdit(course) : null}
+                      onClick={isEditMode ? () => setItemToEdit(course) : () => handleCourseClick(course)}
                       cursor="pointer"
                       borderWidth="1px"
                       borderRadius="lg"
@@ -991,6 +1563,7 @@ const InstitutionDashboard = () => {
                               icon={<FaEdit />} 
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setItemToEdit(course);
                                 setNewName(course.name);
                                 setIsRenameModalOpen(true);
                               }}
@@ -1001,6 +1574,7 @@ const InstitutionDashboard = () => {
                               icon={<FaTrash />} 
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setItemToEdit(course);
                                 setIsDeleteModalOpen(true);
                               }}
                             >
@@ -1009,9 +1583,39 @@ const InstitutionDashboard = () => {
                           </MenuList>
                         </Menu>
                       )}
-                      <Icon as={FaFolder} fontSize="4xl" color="#640101" mb={3} />
-                      <Text fontWeight="medium">{course.name}</Text>
-                      <Text fontSize="sm" color="gray.500">Course</Text>
+                      <Box 
+                        p={2} 
+                        bg="#640101" 
+                        color="white" 
+                        width="100%" 
+                        borderTopRadius="md"
+                        mb={3}
+                      >
+                        <Icon as={FaFolder} fontSize="xl" mr={2} />
+                        <Text fontWeight="bold" display="inline">
+                          {course.name}
+                        </Text>
+                      </Box>
+                      <VStack align="stretch" spacing={2} textAlign="left">
+                        <Flex justify="space-between">
+                          <Text fontSize="sm" color="gray.600">Instructor:</Text>
+                          <Text fontSize="sm" fontWeight="medium">
+                            {course.instructor}
+                          </Text>
+                        </Flex>
+                        <Flex justify="space-between">
+                          <Text fontSize="sm" color="gray.600">Students:</Text>
+                          <Text fontSize="sm" fontWeight="medium">
+                            {course.enrolledStudents?.length || 0}
+                          </Text>
+                        </Flex>
+                        <Flex justify="space-between">
+                          <Text fontSize="sm" color="gray.600">Grade:</Text>
+                          <Text fontSize="sm" fontWeight="medium">
+                            {course.grade || "N/A"}
+                          </Text>
+                        </Flex>
+                      </VStack>
                     </Box>
                   ))}
                 </SimpleGrid>
@@ -1059,6 +1663,27 @@ const InstitutionDashboard = () => {
             
             {/* Add Student Tab */}
             <TabPanel>
+              {courseForEnrollment ? (
+                <Box mb={4} p={3} borderWidth="1px" borderRadius="md" bg="blue.50">
+                  <Flex justify="space-between" align="center">
+                    <Box>
+                      <Heading size="sm">Enrolling Students in Course:</Heading>
+                      <Text fontWeight="medium">{courseForEnrollment.name}</Text>
+                      <Text fontSize="sm">Instructor: {courseForEnrollment.instructor}</Text>
+                    </Box>
+                    <Button 
+                      colorScheme="blue" 
+                      size="sm"
+                      leftIcon={<FaUserGraduate />}
+                      onClick={handleEnrollSelectedStudents}
+                      isDisabled={selectedStudents.length === 0}
+                    >
+                      Enroll Selected ({selectedStudents.length})
+                    </Button>
+                  </Flex>
+                </Box>
+              ) : null}
+              
               <Grid templateColumns={{ base: "1fr", md: "1fr", lg: "repeat(2, 1fr)" }} gap={4}>
                 {/* Left Box - Student List */}
                 <GridItem>
@@ -1376,6 +2001,153 @@ const InstitutionDashboard = () => {
             </Button>
             <Button colorScheme="blue" onClick={handleRenameItem}>
               Rename
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Course Detail Modal */}
+      <Modal isOpen={isCourseDetailOpen} onClose={() => setIsCourseDetailOpen(false)} size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader bg="#640101" color="white" borderTopRadius="md">
+            {selectedCourse?.name}
+            <Badge ml={2} colorScheme={selectedCourse?.status === 'active' ? 'green' : 'yellow'}>
+              {selectedCourse?.status}
+            </Badge>
+          </ModalHeader>
+          <ModalCloseButton color="white" />
+          <ModalBody py={4}>
+            <Grid templateColumns={{ base: "1fr", md: "1fr 2fr" }} gap={4}>
+              <GridItem>
+                <Box borderWidth="1px" borderRadius="md" p={4} bg="gray.50">
+                  <Heading size="sm" mb={2}>Course Information</Heading>
+                  <Divider mb={3} />
+                  <Stack spacing={2}>
+                    <Box>
+                      <Text fontWeight="bold" fontSize="sm">Instructor:</Text>
+                      <Text>{selectedCourse?.instructor}</Text>
+                    </Box>
+                    <Box>
+                      <Text fontWeight="bold" fontSize="sm">Description:</Text>
+                      <Text>{selectedCourse?.description}</Text>
+                    </Box>
+                    <Box>
+                      <Text fontWeight="bold" fontSize="sm">Students Enrolled:</Text>
+                      <Text>{selectedCourse?.enrolledStudents?.length || 0}</Text>
+                    </Box>
+                    <Box>
+                      <Text fontWeight="bold" fontSize="sm">Class:</Text>
+                      <Text>{selectedClass?.name}</Text>
+                    </Box>
+                    <Box>
+                      <Text fontWeight="bold" fontSize="sm">Grade:</Text>
+                      <Text>{selectedGrade?.name}</Text>
+                    </Box>
+                  </Stack>
+                </Box>
+              </GridItem>
+              <GridItem>
+                <Box>
+                  <Heading size="sm" mb={2}>Enrolled Students</Heading>
+                  <Flex justify="space-between" align="center" mb={2}>
+                    <Text fontSize="sm" color="gray.600">{selectedCourse?.enrolledStudents?.length || 0} students enrolled</Text>
+                    <Button 
+                      size="xs" 
+                      leftIcon={<FaPlus />} 
+                      colorScheme="blue" 
+                      onClick={() => {
+                        // Open a dialog to add students
+                        setCourseForEnrollment(selectedCourse);
+                        setIsCourseDetailOpen(false);
+                        setTabIndex(2); // Switch to Add Student tab
+                      }}
+                    >
+                      Enroll Student
+                    </Button>
+                  </Flex>
+                  <Divider mb={3} />
+                  {selectedCourse?.enrolledStudents?.length > 0 ? (
+                    <Box maxHeight="300px" overflowY="auto" pr={2}>
+                      <Table variant="simple" size="sm">
+                        <Thead position="sticky" top={0} bg="white" zIndex={1}>
+                          <Tr>
+                            <Th>ID</Th>
+                            <Th>Name</Th>
+                            <Th>Grade</Th>
+                            <Th>Actions</Th>
+                          </Tr>
+                        </Thead>
+                        <Tbody>
+                          {selectedCourse.enrolledStudents.map(student => (
+                            <Tr key={student.id}>
+                              <Td>{student.id}</Td>
+                              <Td>
+                                <Tooltip label={student.email} placement="top">
+                                  <Text>{student.name}</Text>
+                                </Tooltip>
+                              </Td>
+                              <Td>
+                                <Select 
+                                  size="xs" 
+                                  value={student.grade} 
+                                  width="70px"
+                                  onChange={(e) => handleUpdateStudentGrade(student.id, e.target.value)}
+                                >
+                                  <option value="N/A">N/A</option>
+                                  <option value="A+">A+</option>
+                                  <option value="A">A</option>
+                                  <option value="A-">A-</option>
+                                  <option value="B+">B+</option>
+                                  <option value="B">B</option>
+                                  <option value="B-">B-</option>
+                                  <option value="C+">C+</option>
+                                  <option value="C">C</option>
+                                  <option value="C-">C-</option>
+                                  <option value="D">D</option>
+                                  <option value="F">F</option>
+                                </Select>
+                              </Td>
+                              <Td>
+                                <IconButton
+                                  icon={<FaTrash />}
+                                  size="xs"
+                                  colorScheme="red"
+                                  variant="ghost"
+                                  aria-label="Remove student"
+                                  onClick={() => handleRemoveStudentFromCourse(student.id)}
+                                />
+                              </Td>
+                            </Tr>
+                          ))}
+                        </Tbody>
+                      </Table>
+                    </Box>
+                  ) : (
+                    <Box p={4} textAlign="center" borderWidth="1px" borderRadius="md">
+                      <Text color="gray.500">No students enrolled in this course.</Text>
+                    </Box>
+                  )}
+                </Box>
+              </GridItem>
+            </Grid>
+          </ModalBody>
+          <ModalFooter>
+            <Button colorScheme="gray" mr={3} onClick={() => setIsCourseDetailOpen(false)}>
+              Close
+            </Button>
+            <Button 
+              colorScheme="red" 
+              bg="#640101"
+              leftIcon={<FaEdit />}
+              isDisabled={isEditMode}
+              onClick={() => {
+                setIsCourseDetailOpen(false);
+                setIsEditMode(true);
+                setItemToEdit(selectedCourse);
+              }}
+            >
+              Edit Course
             </Button>
           </ModalFooter>
         </ModalContent>

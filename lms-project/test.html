@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboarder API Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    button {
+      padding: 10px 15px;
+      margin: 5px;
+      background-color: #640101;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #4a0000;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Dashboarder API Test</h1>
+  
+  <h2>Authentication</h2>
+  <div class="form-group">
+    <label for="email">Email:</label>
+    <input type="email" id="email" value="admin@example.com">
+  </div>
+  <div class="form-group">
+    <label for="password">Password:</label>
+    <input type="password" id="password" value="admin">
+  </div>
+  <button id="login-btn">Login</button>
+  
+  <h2>API Tests</h2>
+  <button id="get-institutions-btn">Get Institutions</button>
+  <button id="get-students-btn">Get Students</button>
+  
+  <h2>Results</h2>
+  <pre id="results">Results will appear here...</pre>
+
+  <script>
+    // Base API URL
+    const API_URL = 'http://localhost:5001/api';
+    let authToken = '';
+    
+    // Login function
+    document.getElementById('login-btn').addEventListener('click', async () => {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      
+      try {
+        const response = await fetch(`${API_URL}/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email, password })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          authToken = data.token;
+          document.getElementById('results').textContent = JSON.stringify(data, null, 2);
+          alert('Login successful! Token saved.');
+        } else {
+          document.getElementById('results').textContent = JSON.stringify(data, null, 2);
+          alert('Login failed: ' + data.message);
+        }
+      } catch (error) {
+        document.getElementById('results').textContent = error.toString();
+        alert('Error: ' + error.toString());
+      }
+    });
+    
+    // Get institutions
+    document.getElementById('get-institutions-btn').addEventListener('click', async () => {
+      if (!authToken) {
+        alert('Please login first!');
+        return;
+      }
+      
+      try {
+        const response = await fetch(`${API_URL}/institutions`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+        
+        const data = await response.json();
+        document.getElementById('results').textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        document.getElementById('results').textContent = error.toString();
+        alert('Error: ' + error.toString());
+      }
+    });
+    
+    // Get students
+    document.getElementById('get-students-btn').addEventListener('click', async () => {
+      if (!authToken) {
+        alert('Please login first!');
+        return;
+      }
+      
+      try {
+        const response = await fetch(`${API_URL}/students`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+        
+        const data = await response.json();
+        document.getElementById('results').textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        document.getElementById('results').textContent = error.toString();
+        alert('Error: ' + error.toString());
+      }
+    });
+  </script>
+</body>
+</html>

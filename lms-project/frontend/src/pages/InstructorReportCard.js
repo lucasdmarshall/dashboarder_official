@@ -419,9 +419,9 @@ const InstructorReportCard = () => {
                       isDisabled={!course.editable && !course.pending_approval}
                       rightIcon={
                         course.pending_approval ? 
-                          <Tooltip label="Pending approval"><Icon as={FaLock} color="orange.500" /></Tooltip> :
+                          <Tooltip label="Pending approval"><Box><Icon as={FaLock} color="orange.500" /></Box></Tooltip> :
                           !course.editable ? 
-                            <Tooltip label="Report cards finalized"><Icon as={FaLock} color="gray.500" /></Tooltip> : 
+                            <Tooltip label="Report cards finalized"><Box><Icon as={FaLock} color="gray.500" /></Box></Tooltip> : 
                             null
                       }
                     >

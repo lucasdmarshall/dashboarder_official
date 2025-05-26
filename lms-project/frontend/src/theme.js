@@ -7,9 +7,7 @@ import '@fontsource/nunito/700.css';
 const theme = extendTheme({
   styles: {
     global: {
-      '@import': [
-        "url('https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&family=Nunito:wght@300;400;600;700&display=swap')"
-      ],
+
       body: {
         bg: 'gray.50',
         color: 'gray.800',

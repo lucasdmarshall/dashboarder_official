@@ -20,7 +20,8 @@ import {
   FaFileAlt,
   FaTasks,
   FaClock,
-  FaIdBadge
+  FaIdBadge,
+  FaWpforms
 } from 'react-icons/fa';
 
 const InstitutionSidebar = () => {
@@ -73,6 +74,22 @@ const InstitutionSidebar = () => {
         >
           <Icon as={FaHome} color="#640101" mr={2} />
           <Text fontSize="lg" fontWeight="bold" color="#640101">Class Division</Text>
+        </Flex>
+        
+        {/* Institution Profile link */}
+        <Flex 
+          as={RouterLink} 
+          to={`/institution-profile/${localStorage.getItem('userId') || 'current'}`}
+          alignItems="center"
+          p={2}
+          borderRadius="md"
+          width="100%"
+          bg={location.pathname.includes('/institution-profile') ? 'rgba(100, 1, 1, 0.1)' : 'transparent'}
+          _hover={{ bg: 'rgba(100, 1, 1, 0.1)' }}
+          transition="all 0.2s"
+        >
+          <Icon as={FaUserCheck} color="#640101" mr={2} />
+          <Text fontSize="lg" fontWeight="bold" color="#640101">Institution Profile</Text>
         </Flex>
         
         {/* Student Data Management Section - MOVED UP */}
@@ -356,6 +373,22 @@ const InstitutionSidebar = () => {
         >
           <FaIdBadge color="#640101" />
           <Text ml={2} color="gray.700">Digital Hall Pass</Text>
+        </Flex>
+        
+        {/* Forms Section */}
+        <Flex 
+          as={RouterLink} 
+          to={`/institution/${localStorage.getItem('institutionId') || '1'}/forms`}
+          alignItems="center"
+          p={2}
+          borderRadius="md"
+          width="100%"
+          _hover={{ bg: 'rgba(100, 1, 1, 0.1)' }}
+          transition="all 0.2s"
+          mt={4}
+        >
+          <FaWpforms color="#640101" />
+          <Text ml={2} color="gray.700">Forms</Text>
         </Flex>
       </VStack>
     </Box>

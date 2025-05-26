@@ -1,13 +1,28 @@
 {
-  "name": "new",
+  "name": "dashboarder",
   "version": "1.0.0",
-  "main": "App.js",
+  "description": "Dashboarder LMS - Learning Management System Frontend",
+  "main": "index.js",
   "scripts": {
-    "start": "node frontend/src/App.js",
+    "start": "cd lms-project/frontend && npm start",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": [
+    "lms",
+    "education",
+    "dashboarder"
+  ],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lucasdmarshall/dashboarder_official.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lucasdmarshall/dashboarder_official/issues"
+  },
+  "homepage": "https://github.com/lucasdmarshall/dashboarder_official#readme",
+  "dependencies": {
+    "axios": "^1.9.0"
+  }
 }

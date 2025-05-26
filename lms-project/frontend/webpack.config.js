@@ -12,7 +12,8 @@ module.exports = (env, argv) => {
     output: {
       path: path.resolve(__dirname, 'build'),
       filename: 'bundle.[contenthash].js',
-      publicPath: '/'
+      publicPath: '/',
+      crossOriginLoading: 'anonymous'
     },
     module: {
       rules: [
@@ -61,7 +62,17 @@ module.exports = (env, argv) => {
       port: 3001,
       hot: true,
       historyApiFallback: true,
-      open: true
+      open: true,
+      onBeforeSetupMiddleware: function (devServer) {
+        if (!devServer) {
+          throw new Error('webpack-dev-server is not defined');
+        }
+        devServer.app.use((req, res, next) => {
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Content-Security-Policy', "default-src 'self' * 'unsafe-inline' 'unsafe-eval'; script-src 'self' * 'unsafe-inline' 'unsafe-eval'; connect-src 'self' * 'unsafe-inline' data:; style-src 'self' * 'unsafe-inline'; img-src 'self' * data: blob: 'unsafe-inline';");
+          next();
+        });
+      },
     }
   };
 };

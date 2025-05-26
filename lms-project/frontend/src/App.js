@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ChakraProvider } from '@chakra-ui/react';
 import { TutorProvider } from './contexts/TutorContext';
@@ -15,27 +15,25 @@ import InstitutionDashboard from './pages/InstitutionDashboard';
 import InstructorRegistration from './components/InstructorRegistration';
 import StudentRegistration from './components/StudentRegistration';
 
-// Import landing page
+// Import landing page and new auth pages
 import LandingPage from './pages/LandingPage';
+import InstructorInfo from './pages/InstructorInfo';
+import SignUp from './pages/SignUp';
+import InstructorSignUp from './pages/InstructorSignUp';
 import StudentHome from './pages/StudentHome';
 import InstructorHome from './pages/InstructorHome';
 import AdminTutorsPage from './pages/AdminTutorsPage';
 import AdminTutorRegistrationsPage from './pages/AdminTutorRegistrationsPage';
 import AdminManageTutorsPage from './pages/AdminManageTutorsPage';
 import AdminStudentsPage from './pages/AdminStudentsPage';
+import AdminManageInstitutionsPage from './pages/AdminManageInstitutionsPage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
 import AdminCoursesPage from './pages/AdminCoursesPage';
 import InstructorCreateCourse from './pages/InstructorCreateCourse';
 import InstructorCourses from './pages/InstructorCourses';
 import InstructorEditCourse from './pages/InstructorEditCourse';
 import InstructorProfile from './pages/InstructorProfile';
-import InstructorCourseStudents from './pages/InstructorCourseStudents';
-import InstructorStudents from './pages/InstructorStudents';
-import InstructorPaymentOptions from './pages/InstructorPaymentOptions';
-import InstructorTimeTable from './pages/InstructorTimeTable';
-import InstructorReportCard from './pages/InstructorReportCard';
-import InstructorHallPass from './pages/InstructorHallPass';
-import InstructorForum from './pages/InstructorForum';
+import InstitutionProfile from './pages/InstitutionProfile';
 import StudentProfile from './pages/StudentProfile';
 import StudentProfileNew from './pages/StudentProfileNew';
 import InstructorCourseDetails from './pages/InstructorCourseDetails';
@@ -79,12 +77,59 @@ import ReportCard from './pages/ReportCard';
 import HomeworkSubmission from './pages/HomeworkSubmission';
 import TimeTable from './pages/TimeTable';
 import DigitalHallPass from './pages/DigitalHallPass';
+import Forms from './pages/Forms';
+import InstructorCourseStudents from './pages/InstructorCourseStudents';
+import InstructorStudents from './pages/InstructorStudents';
+import InstructorPaymentOptions from './pages/InstructorPaymentOptions';
+import InstructorTimeTable from './pages/InstructorTimeTable';
+import InstructorReportCard from './pages/InstructorReportCard';
+import InstructorHallPass from './pages/InstructorHallPass';
+import InstructorForum from './pages/InstructorForum';
+import StudentFeed from './pages/StudentFeed';
+import InstructorFeed from './pages/InstructorFeed';
+import StudentViewInstitutionProfile from './pages/StudentViewInstitutionProfile';
+import StudentWizard from './pages/StudentWizard';
+import InstructorWizard from './pages/InstructorWizard';
 
 // Import Header
 import Header from './components/Header';
 import ProtectedRoute from './components/ProtectedRoute';
 
+// Import storage utilities
+import { migrateLocalStorage, cleanupStorage } from './utils/migrateStorage';
+
 function App() {
+  // Run storage migration and cleanup on app initialization
+  useEffect(() => {
+    try {
+      // Attempt to migrate and optimize localStorage
+      migrateLocalStorage();
+      
+      // Clean up any unnecessary data
+      cleanupStorage();
+      
+      // Add event listener for storage errors
+      window.addEventListener('error', (e) => {
+        // Check if it's a storage error
+        if (e.message && (
+          e.message.includes('quota') ||
+          e.message.includes('QuotaExceededError') ||
+          e.message.includes('NS_ERROR_DOM_QUOTA_REACHED')
+        )) {
+          console.warn('Storage quota error detected, running cleanup...');
+          cleanupStorage();
+        }
+      });
+      
+      return () => {
+        // Clean up event listener
+        window.removeEventListener('error', () => {});
+      };
+    } catch (error) {
+      console.error('Error during storage initialization:', error);
+    }
+  }, []);
+  
   return (
     <ChakraProvider theme={theme}>
       <AuthProvider>
@@ -95,10 +140,14 @@ function App() {
                 <Header />
                 <Routes>
                   <Route path="/" element={<LandingPage />} />
+                  <Route path="/instructor-info" element={<InstructorInfo />} />
+                  <Route path="/signup" element={<SignUp />} />
+                  <Route path="/instructor-signup" element={<InstructorSignUp />} />
                   <Route path="/student-dashboard" element={<StudentDashboard />} />
                   <Route path="/instructor-dashboard" element={<InstructorDashboard />} />
                   <Route path="/admin-dashboard" element={<AdminDashboard />} />
                   <Route path="/institution-dashboard" element={<InstitutionDashboard />} />
+                  <Route path="/institution-dashboard/:institutionId" element={<InstitutionDashboard />} />
                   <Route path="/instructor-registration" element={<InstructorRegistration />} />
                   <Route path="/student-registration" element={<StudentRegistration />} />
                   <Route path="/student-home" element={<StudentHome />} />
@@ -107,6 +156,7 @@ function App() {
                   <Route path="/admin-tutor-registrations-page" element={<AdminTutorRegistrationsPage />} />
                   <Route path="/admin-manage-tutors-page" element={<AdminManageTutorsPage />} />
                   <Route path="/admin-students-page" element={<AdminStudentsPage />} />
+                  <Route path="/admin-manage-institutions-page" element={<AdminManageInstitutionsPage />} />
                   <Route path="/admin-settings-page" element={<AdminSettingsPage />} />
                   <Route path="/admin-courses" element={<AdminCoursesPage />} />
                   <Route path="/admin-courses-page" element={<AdminCoursesPage />} />
@@ -173,6 +223,15 @@ function App() {
                   <Route path="/time-table" element={<><InstitutionSidebar /><TimeTable /></>} />
                   <Route path="/digital-hall-pass" element={<><InstitutionSidebar /><DigitalHallPass /></>} />
                   <Route path="/form-builder" element={<FormBuilder />} />
+                  <Route path="/institution/:institutionId/forms" element={<><InstitutionSidebar /><Forms /></>} />
+                  <Route path="/institution-profile/:institutionId" element={<InstitutionProfile />} />
+                  <Route path="/institution/:institutionId" element={<InstitutionProfile />} />
+                  <Route path="/student-feed" element={<StudentFeed />} />
+                  <Route path="/instructor-feed" element={<InstructorFeed />} />
+                  <Route path="/feed" element={<StudentFeed />} />
+                  <Route path="/student-view-institution-profile/:institutionId" element={<StudentViewInstitutionProfile />} />
+                  <Route path="/student-wizard" element={<StudentWizard />} />
+                  <Route path="/instructor-wizard" element={<InstructorWizard />} />
                 </Routes>
               </Router>
             </SettingsProvider>

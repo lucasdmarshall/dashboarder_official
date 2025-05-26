@@ -1,4 +1,4 @@
-  import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -43,7 +43,11 @@ import {
   FormControl,
   FormLabel,
   extendTheme,
-  Image
+  Image,
+  Spinner,
+  Alert,
+  AlertIcon,
+  CloseButton
 } from '@chakra-ui/react';
 import {
   FaMoon,
@@ -59,7 +63,8 @@ import {
   FaCheckCircle,
   FaChalkboardTeacher,
   FaGraduationCap,
-  FaEdit
+  FaEdit,
+  FaTimes
 } from 'react-icons/fa';
 
 import InstructorSidebar from '../components/InstructorSidebar';
@@ -82,6 +87,8 @@ const ENHANCED_THEME_COLORS = {
     hover: '#8B0000'         // Darker red for hover states
   }
 };
+
+const API_URL = 'http://localhost:5001/api';
 
 // Enhanced global styles
 const enhancedTheme = extendTheme({
@@ -340,11 +347,47 @@ const InstructorProfile = () => {
   const cardBg = useColorModeValue(ENHANCED_THEME_COLORS.cardBackground, ENHANCED_THEME_COLORS.cardBackground);
   const textColor = useColorModeValue(ENHANCED_THEME_COLORS.text.primary, ENHANCED_THEME_COLORS.text.primary);
 
+  // State for loading and errors
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   // State for editable sections
   const [aboutMe, setAboutMe] = useState('');
   const [skills, setSkills] = useState([]);
   const [education, setEducation] = useState([]);
   const [certifications, setCertifications] = useState([]);
+  const [newSkill, setNewSkill] = useState('');
+  const [newEducation, setNewEducation] = useState({ degree: '', institution: '', year: '' });
+  const [newCertification, setNewCertification] = useState({ name: '', issuer: '', year: '' });
+
+  // State for new editable fields
+  const [instructorName, setInstructorName] = useState('');
+  const [profilePhoto, setProfilePhoto] = useState('');
+  const [location, setLocation] = useState('');
+  const [languages, setLanguages] = useState([]);
+  const [newLanguage, setNewLanguage] = useState('');
+
+  // State for profile data
+  const [profile, setProfile] = useState({
+    name: '',
+    teacherCode: '',
+    title: '',
+    email: '',
+    location: null,  // Can be NULL
+    languages: [],
+    rating: 0,
+    totalReviews: 0,
+    responseTime: '',
+    skills: [],
+    education: [],
+    certifications: [],
+    courses: [],  // Empty array for non-assigned instructors
+    reviews: [],  // Empty array for non-reviewed instructors
+    bio: '',
+    avatar: '',
+    level: null,  // NULL if not purchased
+    red_mark: null,  // NULL if not purchased
+  });
 
   // Modal controls
   const {
@@ -368,535 +411,157 @@ const InstructorProfile = () => {
     onClose: onCertificationClose
   } = useDisclosure();
 
-  // Edit About Me Modal
-  const AboutMeModal = () => {
-    const [tempAboutMe, setTempAboutMe] = useState(aboutMe);
+  // New modal controls
+  const {
+    isOpen: isNameOpen,
+    onOpen: onNameOpen,
+    onClose: onNameClose
+  } = useDisclosure();
+  const {
+    isOpen: isPhotoOpen,
+    onOpen: onPhotoOpen,
+    onClose: onPhotoClose
+  } = useDisclosure();
+  const {
+    isOpen: isLocationOpen,
+    onOpen: onLocationOpen,
+    onClose: onLocationClose
+  } = useDisclosure();
+  const {
+    isOpen: isLanguagesOpen,
+    onOpen: onLanguagesOpen,
+    onClose: onLanguagesClose
+  } = useDisclosure();
 
-    return (
-      <Modal 
-        isOpen={isAboutMeOpen} 
-        onClose={onAboutMeClose} 
-        size="xl"
-        closeOnOverlayClick={false}
-        closeOnEsc={false}
-      >
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Edit About Me</ModalHeader>
-          <ModalCloseButton 
-            onClick={(e) => {
-              e.stopPropagation();
-              // Reset to original bio if cancelled
-              setAboutMe(profile.bio);
-              onAboutMeClose();
-            }} 
-          />
-          <ModalBody>
-            <Textarea 
-              value={tempAboutMe} 
-              onChange={(e) => setTempAboutMe(e.target.value)}
-              placeholder="Tell us about yourself..."
-              size="lg"
-              height="200px"
-            />
-          </ModalBody>
-          <ModalFooter>
-            <Button 
-              colorScheme="blue" 
-              mr={3} 
-              onClick={() => {
-                // Update aboutMe state
-                setAboutMe(tempAboutMe);
-                // TODO: Implement actual backend save
-                onAboutMeClose();
-                toast({
-                  title: "About Me Updated",
-                  description: tempAboutMe,
-                  status: "success",
-                  duration: 2000,
-                  isClosable: true,
-                });
-              }}
-            >
-              Save
-            </Button>
-            <Button 
-              variant="ghost" 
-              onClick={() => {
-                // Reset to original bio
-                setAboutMe(profile.bio);
-                onAboutMeClose();
-              }}
-            >
-              Cancel
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-    );
-  };
-
-  // Edit Skills Modal
-  const SkillsModal = () => {
-    const [tempSkills, setTempSkills] = useState([...skills]);
-    const [newSkill, setNewSkill] = useState('');
-
-    return (
-      <Modal 
-        isOpen={isSkillsOpen} 
-        onClose={onSkillsClose} 
-        size="xl"
-        closeOnOverlayClick={false}
-        closeOnEsc={false}
-      >
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Edit Skills</ModalHeader>
-          <ModalCloseButton 
-            onClick={(e) => {
-              e.stopPropagation();
-              // Reset to original skills
-              setTempSkills([...skills]);
-              onSkillsClose();
-            }} 
-          />
-          <ModalBody>
-            <VStack spacing={4} align="stretch">
-              <Wrap>
-                {tempSkills.map((skill, index) => (
-                  <WrapItem key={index}>
-                    <Tag 
-                      size="md" 
-                      variant="solid" 
-                      colorScheme="blue"
-                    >
-                      <TagLabel>{skill}</TagLabel>
-                      <TagCloseButton 
-                        onClick={() => {
-                          const newSkills = tempSkills.filter((_, i) => i !== index);
-                          setTempSkills(newSkills);
-                        }} 
-                      />
-                    </Tag>
-                  </WrapItem>
-                ))}
-              </Wrap>
-              <FormControl>
-                <FormLabel>Add New Skill</FormLabel>
-                <Input 
-                  value={newSkill}
-                  onChange={(e) => setNewSkill(e.target.value)}
-                  placeholder="Enter a new skill"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newSkill.trim()) {
-                      setTempSkills([...tempSkills, newSkill.trim()]);
-                      setNewSkill('');
-                    }
-                  }}
-                />
-              </FormControl>
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button 
-              colorScheme="blue" 
-              mr={3} 
-              onClick={() => {
-                // Update skills state
-                setSkills(tempSkills);
-                // TODO: Save skills to backend
-                onSkillsClose();
-                toast({
-                  title: "Skills Updated",
-                  description: `${tempSkills.length} skill${tempSkills.length !== 1 ? 's' : ''} added`,
-                  status: "success",
-                  duration: 2000,
-                  isClosable: true,
-                });
-              }}
-            >
-              Save
-            </Button>
-            <Button 
-              variant="ghost" 
-              onClick={() => {
-                // Reset to original skills
-                setTempSkills([...skills]);
-                onSkillsClose();
-              }}
-            >
-              Cancel
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-    );
-  };
-
-  // Edit Education Modal
-  const EducationModal = () => {
-    const [tempEducation, setTempEducation] = useState([...education]);
-    const [newEducation, setNewEducation] = useState({
-      degree: '',
-      institution: '',
-      year: ''
-    });
-
-    return (
-      <Modal 
-        isOpen={isEducationOpen} 
-        onClose={onEducationClose} 
-        size="xl"
-        closeOnOverlayClick={false}
-        closeOnEsc={false}
-      >
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Edit Education</ModalHeader>
-          <ModalCloseButton 
-            onClick={(e) => {
-              e.stopPropagation();
-              // Reset to original education
-              setTempEducation([...education]);
-              onEducationClose();
-            }} 
-          />
-          <ModalBody>
-            <VStack spacing={4} align="stretch">
-              {tempEducation.map((edu, index) => (
-                <Flex key={index} alignItems="center">
-                  <Box flex={1} bg="white" p={3} borderRadius="md" mr={3}>
-                    <Text fontWeight="bold">{edu.degree}</Text>
-                    <Text color={ENHANCED_THEME_COLORS.text.muted}>{edu.institution} ({edu.year})</Text>
-                  </Box>
-                  <IconButton 
-                    icon={<FaEdit />} 
-                    variant="ghost" 
-                    colorScheme="red"
-                    onClick={() => {
-                      const newEducations = tempEducation.filter((_, i) => i !== index);
-                      setTempEducation(newEducations);
-                    }}
-                  />
-                </Flex>
-              ))}
-              
-              <FormControl>
-                <FormLabel>Degree</FormLabel>
-                <Input 
-                  value={newEducation.degree}
-                  onChange={(e) => setNewEducation({...newEducation, degree: e.target.value})}
-                  placeholder="e.g., Bachelor of Science in Computer Science"
-                />
-              </FormControl>
-              <FormControl>
-                <FormLabel>Institution</FormLabel>
-                <Input 
-                  value={newEducation.institution}
-                  onChange={(e) => setNewEducation({...newEducation, institution: e.target.value})}
-                  placeholder="e.g., Stanford University"
-                />
-              </FormControl>
-              <FormControl>
-                <FormLabel>Graduation Year</FormLabel>
-                <Input 
-                  value={newEducation.year}
-                  onChange={(e) => setNewEducation({...newEducation, year: e.target.value})}
-                  placeholder="e.g., 2020"
-                  type="number"
-                />
-              </FormControl>
-              <Button 
-                colorScheme="green" 
-                onClick={() => {
-                  if (newEducation.degree && newEducation.institution && newEducation.year) {
-                    setTempEducation([...tempEducation, newEducation]);
-                    setNewEducation({degree: '', institution: '', year: ''});
-                  }
-                }}
-              >
-                Add Education
-              </Button>
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button 
-              colorScheme="blue" 
-              mr={3} 
-              onClick={() => {
-                // Update education state
-                setEducation(tempEducation);
-                // TODO: Save education to backend
-                onEducationClose();
-                toast({
-                  title: "Education Updated",
-                  description: `${tempEducation.length} education entr${tempEducation.length !== 1 ? 'ies' : 'y'}`,
-                  status: "success",
-                  duration: 2000,
-                  isClosable: true,
-                });
-              }}
-            >
-              Save
-            </Button>
-            <Button 
-              variant="ghost" 
-              onClick={() => {
-                // Reset to original education
-                setTempEducation([...education]);
-                onEducationClose();
-              }}
-            >
-              Cancel
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-    );
-  };
-
-  // Edit Certification Modal
-  const CertificationModal = () => {
-    const [tempCertifications, setTempCertifications] = useState([...certifications]);
-    const [newCertification, setNewCertification] = useState({
-      name: '',
-      issuer: '',
-      year: ''
-    });
-
-    return (
-      <Modal 
-        isOpen={isCertificationOpen} 
-        onClose={onCertificationClose} 
-        size="xl"
-        closeOnOverlayClick={false}
-        closeOnEsc={false}
-      >
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Edit Certifications</ModalHeader>
-          <ModalCloseButton 
-            onClick={(e) => {
-              e.stopPropagation();
-              // Reset to original certifications
-              setTempCertifications([...certifications]);
-              onCertificationClose();
-            }} 
-          />
-          <ModalBody>
-            <VStack spacing={4} align="stretch">
-              {tempCertifications.map((cert, index) => (
-                <Flex key={index} alignItems="center">
-                  <Box flex={1} bg="white" p={3} borderRadius="md" mr={3}>
-                    <Text fontWeight="bold">{cert.name}</Text>
-                    <Text color={ENHANCED_THEME_COLORS.text.muted}>{cert.issuer} ({cert.year})</Text>
-                  </Box>
-                  <IconButton 
-                    icon={<FaEdit />} 
-                    variant="ghost" 
-                    colorScheme="red"
-                    onClick={() => {
-                      const newCerts = tempCertifications.filter((_, i) => i !== index);
-                      setTempCertifications(newCerts);
-                    }}
-                  />
-                </Flex>
-              ))}
-              
-              <FormControl>
-                <FormLabel>Certification Name</FormLabel>
-                <Input 
-                  value={newCertification.name}
-                  onChange={(e) => setNewCertification({...newCertification, name: e.target.value})}
-                  placeholder="e.g., AWS Certified Solutions Architect"
-                />
-              </FormControl>
-              <FormControl>
-                <FormLabel>Issuer</FormLabel>
-                <Input 
-                  value={newCertification.issuer}
-                  onChange={(e) => setNewCertification({...newCertification, issuer: e.target.value})}
-                  placeholder="e.g., Amazon Web Services"
-                />
-              </FormControl>
-              <FormControl>
-                <FormLabel>Year Obtained</FormLabel>
-                <Input 
-                  value={newCertification.year}
-                  onChange={(e) => setNewCertification({...newCertification, year: e.target.value})}
-                  placeholder="e.g., 2022"
-                  type="number"
-                />
-              </FormControl>
-              <Button 
-                colorScheme="green" 
-                onClick={() => {
-                  if (newCertification.name && newCertification.issuer && newCertification.year) {
-                    setTempCertifications([...tempCertifications, newCertification]);
-                    setNewCertification({name: '', issuer: '', year: ''});
-                  }
-                }}
-              >
-                Add Certification
-              </Button>
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button 
-              colorScheme="blue" 
-              mr={3} 
-              onClick={() => {
-                // Update certifications state
-                setCertifications(tempCertifications);
-                // TODO: Save certifications to backend
-                onCertificationClose();
-                toast({
-                  title: "Certifications Updated",
-                  description: `${tempCertifications.length} certification${tempCertifications.length !== 1 ? 's' : ''}`,
-                  status: "success",
-                  duration: 2000,
-                  isClosable: true,
-                });
-              }}
-            >
-              Save
-            </Button>
-            <Button 
-              variant="ghost" 
-              onClick={() => {
-                // Reset to original certifications
-                setTempCertifications([...certifications]);
-                onCertificationClose();
-              }}
-            >
-              Cancel
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-    );
-  };
-
-  const [profile] = useState({
-    name: 'Dr. Elena Rodriguez',
-    teacherCode: 'IS35712',
-    title: 'Senior Machine Learning & AI Instructor',
-    email: 'elena.rodriguez@techacademy.com',
-    location: 'San Francisco, CA',
-    languages: ['English', 'Spanish', 'Portuguese'],
-    rating: 4.9,
-    totalReviews: 245,
-    responseTime: '1 hour',
-    skills: [
-      'Machine Learning', 'Deep Learning', 'Python', 
-      'TensorFlow', 'Data Science', 'Neural Networks', 
-      'AI Ethics', 'Research'
-    ],
-    education: [
-      {
-        degree: 'Ph.D. in Artificial Intelligence',
-        institution: 'Stanford University',
-        year: 2015
-      },
-      {
-        degree: 'M.S. in Computer Science',
-        institution: 'MIT',
-        year: 2010
-      }
-    ],
-    certifications: [
-      {
-        name: 'AWS Machine Learning Specialty',
-        issuer: 'Amazon Web Services',
-        year: 2022
-      },
-      {
-        name: 'Google Cloud Professional ML Engineer',
-        issuer: 'Google Cloud',
-        year: 2021
-      }
-    ],
-    courses: [
-      {
-        title: 'Advanced Deep Learning',
-        students: 350,
-        rating: 4.9
-      },
-      {
-        title: 'AI Ethics and Responsible ML',
-        students: 250,
-        rating: 4.8
-      }
-    ],
-    reviews: [
-      {
-        studentName: 'Alex Johnson',
-        studentAvatar: 'https://bit.ly/kent-c-dodds',
-        rating: 5,
-        date: 'Jan 15, 2024',
-        comment: 'Dr. Rodriguez is an exceptional instructor. Her deep understanding of machine learning and ability to explain complex concepts made this course incredibly valuable.',
-        course: 'Advanced Deep Learning'
-      },
-      {
-        studentName: 'Michael Chen',
-        studentAvatar: 'https://bit.ly/prosper-otemuyiwa',
-        rating: 5,
-        date: 'Nov 22, 2023',
-        comment: 'Comprehensive and practical approach to machine learning. The hands-on projects were challenging and truly helped me understand the subject deeply.',
-        course: 'Advanced Deep Learning'
-      },
-      {
-        studentName: 'Sarah Kim',
-        studentAvatar: 'https://bit.ly/ryan-florence',
-        rating: 4,
-        date: 'Dec 3, 2023',
-        comment: 'Great course on AI ethics. The instructor provided real-world insights and challenged us to think critically about the societal implications of AI.',
-        course: 'AI Ethics and Responsible ML'
-      },
-      {
-        studentName: 'Emma Rodriguez',
-        studentAvatar: 'https://bit.ly/code-beast',
-        rating: 4,
-        date: 'Oct 10, 2023',
-        comment: 'Fantastic instructor who goes above and beyond to ensure students understand the material. Highly recommended for anyone serious about machine learning.',
-        course: 'AI Ethics and Responsible ML'
-      },
-      {
-        studentName: 'David Lee',
-        studentAvatar: 'https://bit.ly/dan-abramov',
-        rating: 3,
-        date: 'Sep 5, 2023',
-        comment: 'Good course, but some topics were a bit complex and could have been explained more clearly.',
-        course: 'Advanced Deep Learning'
-      },
-      {
-        studentName: 'Rachel Green',
-        studentAvatar: 'https://bit.ly/ryan-florence',
-        rating: 2,
-        date: 'Aug 15, 2023',
-        comment: 'The course was challenging, and I struggled to keep up with the pace.',
-        course: 'AI Ethics and Responsible ML'
-      },
-      {
-        studentName: 'Tom Harris',
-        studentAvatar: 'https://bit.ly/kent-c-dodds',
-        rating: 1,
-        date: 'Jul 20, 2023',
-        comment: 'Not what I expected. The course did not meet my learning objectives.',
-        course: 'Advanced Deep Learning'
-      }
-    ],
-    bio: 'Passionate AI researcher and educator with over 12 years of experience in machine learning, dedicated to bridging academic research with practical industry applications. Committed to empowering the next generation of tech innovators.',
-    avatar: 'https://bit.ly/dan-abramov',
-    level: 5,
-  });
-
+  // Fetch instructor profile data
   useEffect(() => {
-    setAboutMe(profile.bio);
-    setSkills(profile.skills);
-    setEducation(profile.education);
-    setCertifications(profile.certifications);
-  }, [profile]);
+    const fetchInstructorProfile = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          navigate('/instructor-login');
+          return;
+        }
+
+        const response = await fetch(`${API_URL}/instructors/me/profile`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem('authToken');
+            navigate('/instructor-login');
+            return;
+          }
+          throw new Error(`Failed to fetch profile: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        // Transform API data to match component structure
+        const transformedProfile = {
+          name: data.instructor.name || 'Unknown Instructor',
+          teacherCode: data.profile.teacherCode || 'IS000000',
+          title: data.profile.title || 'Subject Matter Expert',
+          email: data.instructor.email || '',
+          location: data.profile.location || null,  // Can be NULL if not purchased
+          languages: data.profile.languages || ['English'],
+          rating: data.profile.rating || 0,  // From reviews when they exist
+          totalReviews: data.profile.totalReviews || 0,  // From reviews when they exist
+          responseTime: data.profile.responseTime || '1 hour',
+          skills: data.profile.skills || [],  // From database, editable
+          education: data.profile.education || [],  // From database, editable
+          certifications: data.profile.certifications || [],  // From database, editable
+          courses: data.courses || [],  // Empty array until assigned to institution
+          reviews: data.reviews || [],  // Empty array until students review
+          bio: data.instructor.bio || 'Passionate educator dedicated to helping students achieve their goals.',
+          avatar: data.profile.avatar || 'https://bit.ly/dan-abramov',
+          level: data.profile.level,  // NULL if not purchased
+          red_mark: data.profile.red_mark,  // NULL if not purchased
+        };
+
+        setProfile(transformedProfile);
+        setAboutMe(transformedProfile.bio);
+        setSkills(transformedProfile.skills);
+        setEducation(transformedProfile.education);
+        setCertifications(transformedProfile.certifications);
+
+        // Initialize new editable fields
+        setInstructorName(transformedProfile.name);
+        setProfilePhoto(transformedProfile.avatar);
+        setLocation(transformedProfile.location || '');
+        setLanguages(transformedProfile.languages);
+
+      } catch (err) {
+        console.error('Error fetching instructor profile:', err);
+        setError(err.message);
+        toast({
+          title: 'Error Loading Profile',
+          description: err.message,
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchInstructorProfile();
+  }, [navigate, toast]);
+
+  // Save profile updates to backend
+  const saveProfileUpdate = async (updateData) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        navigate('/instructor-login');
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/instructors/me/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update profile: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      toast({
+        title: 'Profile Updated',
+        description: data.message,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      
+      return data;
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      toast({
+        title: 'Update Failed',
+        description: err.message,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      throw err;
+    }
+  };
 
   const [selectedRating, setSelectedRating] = useState(null);
 
@@ -917,6 +582,623 @@ const InstructorProfile = () => {
     localStorage.setItem('instructorName', profile.name);
     localStorage.setItem('instructorCode', profile.teacherCode);
   }, [profile.name, profile.teacherCode]);
+
+  // Edit About Me Modal
+  const AboutMeModal = () => {
+    const [tempAboutMe, setTempAboutMe] = useState(aboutMe);
+
+    return (
+      <Modal 
+        isOpen={isAboutMeOpen} 
+        onClose={onAboutMeClose} 
+        size="xl"
+        closeOnOverlayClick={false}
+        closeOnEsc={false}
+      >
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Edit About Me</ModalHeader>
+          <ModalCloseButton 
+            onClick={(e) => {
+              e.stopPropagation();
+              setTempAboutMe(aboutMe);
+              onAboutMeClose();
+            }} 
+          />
+          <ModalBody>
+            <Textarea 
+              value={tempAboutMe} 
+              onChange={(e) => setTempAboutMe(e.target.value)}
+              placeholder="Tell us about yourself..."
+              size="lg"
+              height="200px"
+            />
+          </ModalBody>
+          <ModalFooter>
+            <Button 
+              colorScheme="blue" 
+              mr={3} 
+              onClick={async () => {
+                try {
+                  await saveProfileUpdate({ bio: tempAboutMe });
+                  setAboutMe(tempAboutMe);
+                  setProfile(prev => ({ ...prev, bio: tempAboutMe }));
+                  onAboutMeClose();
+                } catch (err) {
+                  // Error handling is done in saveProfileUpdate
+                }
+              }}
+            >
+              Save
+            </Button>
+            <Button 
+              variant="ghost" 
+              onClick={() => {
+                setTempAboutMe(aboutMe);
+                onAboutMeClose();
+              }}
+            >
+              Cancel
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    );
+  };
+
+  // Edit Skills Modal
+  const SkillsModal = () => {
+    const [tempSkills, setTempSkills] = useState([...skills]);
+    const [localNewSkill, setLocalNewSkill] = useState('');
+
+    // Reset local state when modal opens
+    useEffect(() => {
+      if (isSkillsOpen) {
+        setTempSkills([...skills]);
+        setLocalNewSkill('');
+      }
+    }, [isSkillsOpen, skills]);
+
+    const addSkill = () => {
+      if (localNewSkill.trim() && !tempSkills.includes(localNewSkill.trim())) {
+        setTempSkills([...tempSkills, localNewSkill.trim()]);
+        setLocalNewSkill('');
+      }
+    };
+
+    const removeSkill = (skillToRemove) => {
+      setTempSkills(tempSkills.filter(skill => skill !== skillToRemove));
+    };
+
+    return (
+      <Modal isOpen={isSkillsOpen} onClose={onSkillsClose} size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Edit Skills</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <HStack>
+                <Input 
+                  value={localNewSkill}
+                  onChange={(e) => setLocalNewSkill(e.target.value)}
+                  placeholder="Add a new skill..."
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addSkill();
+                    }
+                  }}
+                />
+                <Button onClick={addSkill} colorScheme="blue">Add</Button>
+              </HStack>
+              <Wrap spacing={2}>
+                {tempSkills.map((skill, index) => (
+                  <WrapItem key={index}>
+                    <Tag size="md" variant="solid" colorScheme="blue">
+                      <TagLabel>{skill}</TagLabel>
+                      <TagCloseButton onClick={() => removeSkill(skill)} />
+                    </Tag>
+                  </WrapItem>
+                ))}
+              </Wrap>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button 
+              colorScheme="blue" 
+              mr={3} 
+              onClick={async () => {
+                try {
+                  await saveProfileUpdate({ skills: tempSkills });
+                  setSkills(tempSkills);
+                  setProfile(prev => ({ ...prev, skills: tempSkills }));
+                  onSkillsClose();
+                } catch (err) {
+                  // Error handling is done in saveProfileUpdate
+                }
+              }}
+            >
+              Save
+            </Button>
+            <Button variant="ghost" onClick={onSkillsClose}>
+              Cancel
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    );
+  };
+
+  // Edit Education Modal
+  const EducationModal = () => {
+    const [tempEducation, setTempEducation] = useState([...education]);
+    const [localNewEducation, setLocalNewEducation] = useState({ degree: '', institution: '', year: '' });
+
+    // Reset local state when modal opens
+    useEffect(() => {
+      if (isEducationOpen) {
+        setTempEducation([...education]);
+        setLocalNewEducation({ degree: '', institution: '', year: '' });
+      }
+    }, [isEducationOpen, education]);
+
+    const addEducation = () => {
+      if (localNewEducation.degree.trim() && localNewEducation.institution.trim()) {
+        setTempEducation([...tempEducation, { ...localNewEducation }]);
+        setLocalNewEducation({ degree: '', institution: '', year: '' });
+      }
+    };
+
+    const removeEducation = (index) => {
+      setTempEducation(tempEducation.filter((_, i) => i !== index));
+    };
+
+    return (
+      <Modal isOpen={isEducationOpen} onClose={onEducationClose} size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Edit Education</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <VStack spacing={3}>
+                <FormControl>
+                  <FormLabel>Degree</FormLabel>
+                  <Input 
+                    value={localNewEducation.degree}
+                    onChange={(e) => setLocalNewEducation({...localNewEducation, degree: e.target.value})}
+                    placeholder="e.g., Bachelor of Science in Computer Science"
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Institution</FormLabel>
+                  <Input 
+                    value={localNewEducation.institution}
+                    onChange={(e) => setLocalNewEducation({...localNewEducation, institution: e.target.value})}
+                    placeholder="e.g., Harvard University"
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Year</FormLabel>
+                  <Input 
+                    value={localNewEducation.year}
+                    onChange={(e) => setLocalNewEducation({...localNewEducation, year: e.target.value})}
+                    placeholder="e.g., 2020"
+                  />
+                </FormControl>
+                <Button onClick={addEducation} colorScheme="blue" width="full">Add Education</Button>
+              </VStack>
+              
+              <VStack spacing={2} align="stretch">
+                {tempEducation.map((edu, index) => (
+                  <Box key={index} p={3} borderWidth="1px" borderRadius="md" bg="gray.50">
+                    <HStack justify="space-between">
+                      <VStack align="start" spacing={1}>
+                        <Text fontWeight="bold">{edu.degree}</Text>
+                        <Text fontSize="sm" color="gray.600">{edu.institution} ({edu.year})</Text>
+                      </VStack>
+                      <IconButton 
+                        icon={<FaTimes />} 
+                        size="sm" 
+                        variant="ghost"
+                        onClick={() => removeEducation(index)}
+                      />
+                    </HStack>
+                  </Box>
+                ))}
+              </VStack>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button 
+              colorScheme="blue" 
+              mr={3} 
+              onClick={async () => {
+                try {
+                  await saveProfileUpdate({ education: tempEducation });
+                  setEducation(tempEducation);
+                  setProfile(prev => ({ ...prev, education: tempEducation }));
+                  onEducationClose();
+                } catch (err) {
+                  // Error handling is done in saveProfileUpdate
+                }
+              }}
+            >
+              Save
+            </Button>
+            <Button variant="ghost" onClick={onEducationClose}>
+              Cancel
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    );
+  };
+
+  // Edit Certifications Modal
+  const CertificationsModal = () => {
+    const [tempCertifications, setTempCertifications] = useState([...certifications]);
+    const [localNewCertification, setLocalNewCertification] = useState({ name: '', issuer: '', year: '' });
+
+    // Reset local state when modal opens
+    useEffect(() => {
+      if (isCertificationOpen) {
+        setTempCertifications([...certifications]);
+        setLocalNewCertification({ name: '', issuer: '', year: '' });
+      }
+    }, [isCertificationOpen, certifications]);
+
+    const addCertification = () => {
+      if (localNewCertification.name.trim() && localNewCertification.issuer.trim()) {
+        setTempCertifications([...tempCertifications, { ...localNewCertification }]);
+        setLocalNewCertification({ name: '', issuer: '', year: '' });
+      }
+    };
+
+    const removeCertification = (index) => {
+      setTempCertifications(tempCertifications.filter((_, i) => i !== index));
+    };
+
+    return (
+      <Modal isOpen={isCertificationOpen} onClose={onCertificationClose} size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Edit Certifications</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <VStack spacing={3}>
+                <FormControl>
+                  <FormLabel>Certification Name</FormLabel>
+                  <Input 
+                    value={localNewCertification.name}
+                    onChange={(e) => setLocalNewCertification({...localNewCertification, name: e.target.value})}
+                    placeholder="e.g., AWS Certified Solutions Architect"
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Issuing Organization</FormLabel>
+                  <Input 
+                    value={localNewCertification.issuer}
+                    onChange={(e) => setLocalNewCertification({...localNewCertification, issuer: e.target.value})}
+                    placeholder="e.g., Amazon Web Services"
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Year</FormLabel>
+                  <Input 
+                    value={localNewCertification.year}
+                    onChange={(e) => setLocalNewCertification({...localNewCertification, year: e.target.value})}
+                    placeholder="e.g., 2023"
+                  />
+                </FormControl>
+                <Button onClick={addCertification} colorScheme="blue" width="full">Add Certification</Button>
+              </VStack>
+              
+              <VStack spacing={2} align="stretch">
+                {tempCertifications.map((cert, index) => (
+                  <Box key={index} p={3} borderWidth="1px" borderRadius="md" bg="gray.50">
+                    <HStack justify="space-between">
+                      <VStack align="start" spacing={1}>
+                        <Text fontWeight="bold">{cert.name}</Text>
+                        <Text fontSize="sm" color="gray.600">{cert.issuer} ({cert.year})</Text>
+                      </VStack>
+                      <IconButton 
+                        icon={<FaTimes />} 
+                        size="sm" 
+                        variant="ghost"
+                        onClick={() => removeCertification(index)}
+                      />
+                    </HStack>
+                  </Box>
+                ))}
+              </VStack>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button 
+              colorScheme="blue" 
+              mr={3} 
+              onClick={async () => {
+                try {
+                  await saveProfileUpdate({ certifications: tempCertifications });
+                  setCertifications(tempCertifications);
+                  setProfile(prev => ({ ...prev, certifications: tempCertifications }));
+                  onCertificationClose();
+                } catch (err) {
+                  // Error handling is done in saveProfileUpdate
+                }
+              }}
+            >
+              Save
+            </Button>
+            <Button variant="ghost" onClick={onCertificationClose}>
+              Cancel
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    );
+  };
+
+  // Edit Name Modal
+  const NameModal = () => {
+    const [tempName, setTempName] = useState(instructorName);
+
+    return (
+      <Modal isOpen={isNameOpen} onClose={onNameClose} size="md">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Edit Name</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <FormControl>
+              <FormLabel>Full Name</FormLabel>
+              <Input 
+                value={tempName}
+                onChange={(e) => setTempName(e.target.value)}
+                placeholder="Enter your full name"
+              />
+            </FormControl>
+          </ModalBody>
+          <ModalFooter>
+            <Button 
+              colorScheme="blue" 
+              mr={3} 
+              onClick={async () => {
+                try {
+                  await saveProfileUpdate({ name: tempName });
+                  setInstructorName(tempName);
+                  setProfile(prev => ({ ...prev, name: tempName }));
+                  onNameClose();
+                } catch (err) {
+                  // Error handling is done in saveProfileUpdate
+                }
+              }}
+            >
+              Save
+            </Button>
+            <Button variant="ghost" onClick={onNameClose}>
+              Cancel
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    );
+  };
+
+  // Edit Profile Photo Modal
+  const ProfilePhotoModal = () => {
+    const [tempPhoto, setTempPhoto] = useState(profilePhoto);
+
+    return (
+      <Modal isOpen={isPhotoOpen} onClose={onPhotoClose} size="md">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Edit Profile Photo</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4}>
+              <Avatar size="xl" src={tempPhoto} name={instructorName} />
+              <FormControl>
+                <FormLabel>Photo URL</FormLabel>
+                <Input 
+                  value={tempPhoto}
+                  onChange={(e) => setTempPhoto(e.target.value)}
+                  placeholder="Enter image URL"
+                />
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button 
+              colorScheme="blue" 
+              mr={3} 
+              onClick={async () => {
+                try {
+                  await saveProfileUpdate({ avatar: tempPhoto });
+                  setProfilePhoto(tempPhoto);
+                  setProfile(prev => ({ ...prev, avatar: tempPhoto }));
+                  onPhotoClose();
+                } catch (err) {
+                  // Error handling is done in saveProfileUpdate
+                }
+              }}
+            >
+              Save
+            </Button>
+            <Button variant="ghost" onClick={onPhotoClose}>
+              Cancel
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    );
+  };
+
+  // Edit Location Modal
+  const LocationModal = () => {
+    const [tempLocation, setTempLocation] = useState(location);
+
+    return (
+      <Modal isOpen={isLocationOpen} onClose={onLocationClose} size="md">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Edit Location</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <FormControl>
+              <FormLabel>Location</FormLabel>
+              <Input 
+                value={tempLocation}
+                onChange={(e) => setTempLocation(e.target.value)}
+                placeholder="e.g., San Francisco, CA"
+              />
+            </FormControl>
+          </ModalBody>
+          <ModalFooter>
+            <Button 
+              colorScheme="blue" 
+              mr={3} 
+              onClick={async () => {
+                try {
+                  await saveProfileUpdate({ location: tempLocation });
+                  setLocation(tempLocation);
+                  setProfile(prev => ({ ...prev, location: tempLocation }));
+                  onLocationClose();
+                } catch (err) {
+                  // Error handling is done in saveProfileUpdate
+                }
+              }}
+            >
+              Save
+            </Button>
+            <Button variant="ghost" onClick={onLocationClose}>
+              Cancel
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    );
+  };
+
+  // Edit Languages Modal
+  const LanguagesModal = () => {
+    const [tempLanguages, setTempLanguages] = useState([...languages]);
+    const [localNewLanguage, setLocalNewLanguage] = useState('');
+
+    // Reset local state when modal opens
+    useEffect(() => {
+      if (isLanguagesOpen) {
+        setTempLanguages([...languages]);
+        setLocalNewLanguage('');
+      }
+    }, [isLanguagesOpen, languages]);
+
+    const addLanguage = () => {
+      if (localNewLanguage.trim() && !tempLanguages.includes(localNewLanguage.trim())) {
+        setTempLanguages([...tempLanguages, localNewLanguage.trim()]);
+        setLocalNewLanguage('');
+      }
+    };
+
+    const removeLanguage = (languageToRemove) => {
+      setTempLanguages(tempLanguages.filter(lang => lang !== languageToRemove));
+    };
+
+    return (
+      <Modal isOpen={isLanguagesOpen} onClose={onLanguagesClose} size="md">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Edit Languages</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <HStack>
+                <Input 
+                  value={localNewLanguage}
+                  onChange={(e) => setLocalNewLanguage(e.target.value)}
+                  placeholder="Add a language..."
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addLanguage();
+                    }
+                  }}
+                />
+                <Button onClick={addLanguage} colorScheme="blue">Add</Button>
+              </HStack>
+              <Wrap spacing={2}>
+                {tempLanguages.map((language, index) => (
+                  <WrapItem key={index}>
+                    <Tag size="md" variant="solid" colorScheme="blue">
+                      <TagLabel>{language}</TagLabel>
+                      <TagCloseButton onClick={() => removeLanguage(language)} />
+                    </Tag>
+                  </WrapItem>
+                ))}
+              </Wrap>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button 
+              colorScheme="blue" 
+              mr={3} 
+              onClick={async () => {
+                try {
+                  await saveProfileUpdate({ languages: tempLanguages });
+                  setLanguages(tempLanguages);
+                  setProfile(prev => ({ ...prev, languages: tempLanguages }));
+                  onLanguagesClose();
+                } catch (err) {
+                  // Error handling is done in saveProfileUpdate
+                }
+              }}
+            >
+              Save
+            </Button>
+            <Button variant="ghost" onClick={onLanguagesClose}>
+              Cancel
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    );
+  };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <Flex>
+        <InstructorSidebar />
+        <Container maxW="container.xl" ml="250px" mt="80px" p={8}>
+          <VStack spacing={8} align="center" justify="center" minH="60vh">
+            <Spinner size="xl" color={ENHANCED_THEME_COLORS.accent.primary} thickness="4px" />
+            <Text color={ENHANCED_THEME_COLORS.text.secondary}>Loading your profile...</Text>
+          </VStack>
+        </Container>
+      </Flex>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Flex>
+        <InstructorSidebar />
+        <Container maxW="container.xl" ml="250px" mt="80px" p={8}>
+          <Alert status="error" borderRadius="md">
+            <AlertIcon />
+            <Box>
+              <Text fontWeight="bold">Failed to load profile</Text>
+              <Text>{error}</Text>
+            </Box>
+          </Alert>
+        </Container>
+      </Flex>
+    );
+  }
 
   return (
     <Flex bg={ENHANCED_THEME_COLORS.background} minHeight="100vh">
@@ -963,6 +1245,17 @@ const InstructorProfile = () => {
                       border="3px solid #640101"
                       boxShadow={`0 0 15px #64010140`}
                     />
+                    <IconButton
+                      icon={<FaEdit />}
+                      position="absolute"
+                      bottom={0}
+                      right={0}
+                      size="sm"
+                      variant="solid"
+                      colorScheme="blue"
+                      borderRadius="full"
+                      onClick={onPhotoOpen}
+                    />
                   </Box>
                 </VStack>
 
@@ -976,8 +1269,8 @@ const InstructorProfile = () => {
                 >
                   {/* Name and Verification */}
                   <VStack spacing={1} align="start" width="full">
-                    <HStack spacing={2} alignItems="center">
-                      <HStack spacing={2} alignItems="center">
+                    <HStack spacing={2} alignItems="center" width="full">
+                      <HStack spacing={2} alignItems="center" flex={1}>
                         <Heading 
                           size="lg" 
                           color={ENHANCED_THEME_COLORS.text.primary} 
@@ -986,41 +1279,52 @@ const InstructorProfile = () => {
                           alignItems="center"
                         >
                           {profile.name}
-                          <Tooltip 
-                            label="Verified Dashboarder" 
-                            placement="top" 
-                            hasArrow 
-                            bg="#640101"
-                            color="white"
-                            ml={2}
-                          >
-                            <Flex 
-                              position="relative" 
-                              alignItems="center" 
-                              justifyContent="center"
+                          {/* Only show verification mark if red_mark is purchased (true) */}
+                          {profile.red_mark === true && (
+                            <Tooltip 
+                              label="Verified Dashboarder" 
+                              placement="top" 
+                              hasArrow 
+                              bg="#640101"
+                              color="white"
+                              ml={2}
                             >
-                              <video 
-                                width="40" 
-                                height="40" 
-                                autoPlay 
-                                loop 
-                                muted 
-                                playsInline
-                                style={{
-                                  borderRadius: '50%',
-                                  border: '1px solid',
-                                  borderColor: '#640101',
-                                  animationDuration: '3s', 
-                                  animationTimingFunction: 'ease-in-out', 
-                                  objectFit: 'cover'
-                                }}
+                              <Flex 
+                                position="relative" 
+                                alignItems="center" 
+                                justifyContent="center"
+                                ml={2}
                               >
-                                <source src={verifiedIcon} type="video/webm" />
-                              </video>
-                            </Flex>
-                          </Tooltip>
+                                <video 
+                                  width="40" 
+                                  height="40" 
+                                  autoPlay 
+                                  loop 
+                                  muted 
+                                  playsInline
+                                  style={{
+                                    borderRadius: '50%',
+                                    border: '1px solid',
+                                    borderColor: '#640101',
+                                    animationDuration: '3s', 
+                                    animationTimingFunction: 'ease-in-out', 
+                                    objectFit: 'cover'
+                                  }}
+                                >
+                                  <source src={verifiedIcon} type="video/webm" />
+                                </video>
+                              </Flex>
+                            </Tooltip>
+                          )}
                         </Heading>
                       </HStack>
+                      <IconButton
+                        icon={<FaEdit />}
+                        size="sm"
+                        variant="ghost"
+                        colorScheme="blue"
+                        onClick={onNameOpen}
+                      />
                     </HStack>
 
                     {/* Teacher Code */}
@@ -1045,14 +1349,19 @@ const InstructorProfile = () => {
 
                     {/* Certification */}
                     <HStack spacing={2} mt={2}>
-                      <Tag 
-                        bg="#640101"
-                        color="white"
-                        size="md"
-                        variant="solid"
-                      >
-                        Level 5
-                      </Tag>
+                      {/* Level tag - only show if purchased */}
+                      {profile.level !== null && (
+                        <Tag 
+                          bg="#640101"
+                          color="white"
+                          size="md"
+                          variant="solid"
+                        >
+                          Level {profile.level}
+                        </Tag>
+                      )}
+                      
+                      {/* Always show Dashboarder Certified - NOT payment-based */}
                       <Tag 
                         bg="#000000"
                         color="white"
@@ -1095,9 +1404,17 @@ const InstructorProfile = () => {
                         <Text 
                           fontSize="sm" 
                           color={ENHANCED_THEME_COLORS.text.secondary}
+                          flex={1}
                         >
-                          {profile.location}
+                          {profile.location || "Location not set"}
                         </Text>
+                        <IconButton
+                          icon={<FaEdit />}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="blue"
+                          onClick={onLocationOpen}
+                        />
                       </HStack>
                     </VStack>
                   </VStack>
@@ -1111,6 +1428,16 @@ const InstructorProfile = () => {
                 p={6} 
                 boxShadow="md"
               >
+                <IconButton
+                  icon={<FaEdit />}
+                  position="absolute"
+                  top={2}
+                  right={2}
+                  size="sm"
+                  variant="ghost"
+                  colorScheme="blue"
+                  onClick={onLanguagesOpen}
+                />
                 <VStack spacing={4} align="stretch">
                   <HStack>
                     <FaLanguage color="gray" />
@@ -1138,7 +1465,7 @@ const InstructorProfile = () => {
                 <StatCard 
                   icon={FaChalkboardTeacher} 
                   label="Total Students" 
-                  value={profile.courses.reduce((sum, course) => sum + course.students, 0)} 
+                  value={profile.courses.reduce((sum, course) => sum + (course.students || 0), 0)} 
                   color={ENHANCED_THEME_COLORS.accent.primary} 
                 />
                 <StatCard 
@@ -1160,26 +1487,44 @@ const InstructorProfile = () => {
                   <HStack>
                     <VStack spacing={1} align="center" width="100px">
                       <Heading size="3xl" color={ENHANCED_THEME_COLORS.text.primary}>
-                        {profile.rating}
+                        {profile.rating || 0}
                       </Heading>
                       <HStack spacing={1} alignItems="center">
                         <Text fontWeight="bold" color={ENHANCED_THEME_COLORS.text.primary}>5</Text>
                         <FaMoon color={ENHANCED_THEME_COLORS.accent.primary} size={16} />
                       </HStack>
                       <Text fontSize="sm" color={ENHANCED_THEME_COLORS.text.secondary}>
-                        {profile.totalReviews} Reviews
+                        {profile.totalReviews || 0} Reviews
                       </Text>
                     </VStack>
                     
                     <RatingBreakdown 
-                      reviews={profile.reviews} 
+                      reviews={profile.reviews || []} 
                       selectedRating={selectedRating}
                       onRatingSelect={handleRatingSelect} 
                     />
                   </HStack>
 
+                  {/* Show message when no reviews yet */}
+                  {(!profile.reviews || profile.reviews.length === 0) && (
+                    <Box 
+                      bg="gray.50" 
+                      p={4} 
+                      borderRadius="md" 
+                      textAlign="center"
+                      mt={4}
+                    >
+                      <Text color="gray.500" fontSize="sm" mb={1}>
+                        No reviews yet
+                      </Text>
+                      <Text color="gray.400" fontSize="xs">
+                        Reviews will appear here once students rate your teaching
+                      </Text>
+                    </Box>
+                  )}
+
                   {/* Filtered Reviews */}
-                  {selectedRating && (
+                  {selectedRating && profile.reviews && profile.reviews.length > 0 && (
                     <Box mt={4}>
                       <Heading size="sm" mb={3} color={ENHANCED_THEME_COLORS.text.primary}>
                         {selectedRating}-Moon Reviews
@@ -1333,35 +1678,51 @@ const InstructorProfile = () => {
                 <Heading size="md" mb={4}>
                   Recent Courses
                 </Heading>
-                {profile.courses.map((course, index) => (
+                {profile.courses && profile.courses.length > 0 ? (
+                  profile.courses.map((course, index) => (
+                    <Box 
+                      key={index} 
+                      bg="white" 
+                      p={4} 
+                      borderRadius="md" 
+                      mb={3}
+                    >
+                      <Flex justify="space-between" align="center">
+                        <VStack align="start" spacing={1}>
+                          <Text fontWeight="bold" color={ENHANCED_THEME_COLORS.text.primary}>{course.title}</Text>
+                          <Text color={ENHANCED_THEME_COLORS.text.muted} fontSize="sm">
+                            {course.students} Students Enrolled
+                          </Text>
+                        </VStack>
+                        <Tooltip label={`Course Rating: ${course.rating}`}>
+                          <Badge 
+                            colorScheme="gray"
+                            color={ENHANCED_THEME_COLORS.text.primary}
+                            display="flex" 
+                            alignItems="center"
+                          >
+                            <FaMoon color={ENHANCED_THEME_COLORS.accent.primary} mr={1} />
+                            {course.rating}
+                          </Badge>
+                        </Tooltip>
+                      </Flex>
+                    </Box>
+                  ))
+                ) : (
                   <Box 
-                    key={index} 
-                    bg="white" 
+                    bg="gray.50" 
                     p={4} 
                     borderRadius="md" 
-                    mb={3}
+                    textAlign="center"
                   >
-                    <Flex justify="space-between" align="center">
-                      <VStack align="start" spacing={1}>
-                        <Text fontWeight="bold" color={ENHANCED_THEME_COLORS.text.primary}>{course.title}</Text>
-                        <Text color={ENHANCED_THEME_COLORS.text.muted} fontSize="sm">
-                          {course.students} Students Enrolled
-                        </Text>
-                      </VStack>
-                      <Tooltip label={`Course Rating: ${course.rating}`}>
-                        <Badge 
-                          colorScheme="gray"
-                          color={ENHANCED_THEME_COLORS.text.primary}
-                          display="flex" 
-                          alignItems="center"
-                        >
-                          <FaMoon color={ENHANCED_THEME_COLORS.accent.primary} mr={1} />
-                          {course.rating}
-                        </Badge>
-                      </Tooltip>
-                    </Flex>
+                    <Text color="gray.500" fontSize="sm" mb={2}>
+                      No courses assigned yet
+                    </Text>
+                    <Text color="gray.400" fontSize="xs">
+                      Courses will appear here once you're assigned to an institution
+                    </Text>
                   </Box>
-                ))}
+                )}
               </Box>
             </VStack>
           </GridItem>
@@ -1370,7 +1731,11 @@ const InstructorProfile = () => {
       <AboutMeModal />
       <SkillsModal />
       <EducationModal />
-      <CertificationModal />
+      <CertificationsModal />
+      <NameModal />
+      <ProfilePhotoModal />
+      <LocationModal />
+      <LanguagesModal />
     </Flex>
   );
 };

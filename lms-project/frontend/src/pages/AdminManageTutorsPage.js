@@ -264,64 +264,120 @@ const AdminManageTutorsPage = () => {
                     gap={4}
                   >
                     <Tooltip label="View Details" placement="top">
-                      <Icon 
-                        as={FaEye}
-                        color="#4A0000"
-                        boxSize={5}
+                      <Box 
+                        as="button"
+                        role="button"
+                        tabIndex={0}
                         cursor="pointer"
                         _hover={{ 
-                          color: "#640101",
                           transform: "scale(1.2)"
                         }}
                         transition="all 0.3s ease"
                         onClick={() => handleViewDetails(tutor)}
-                      />
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            handleViewDetails(tutor);
+                          }
+                        }}
+                      >
+                        <Icon 
+                          as={FaEye}
+                          color="#4A0000"
+                          boxSize={5}
+                          _hover={{ 
+                            color: "#640101"
+                          }}
+                          transition="all 0.3s ease"
+                        />
+                      </Box>
                     </Tooltip>
                     
                     <Tooltip label="Edit Tutor" placement="top">
-                      <Icon 
-                        as={FaEdit}
-                        color="#4A0000"
-                        boxSize={5}
+                      <Box 
+                        as="button"
+                        role="button"
+                        tabIndex={0}
                         cursor="pointer"
                         _hover={{ 
-                          color: "#640101",
                           transform: "scale(1.2)"
                         }}
                         transition="all 0.3s ease"
                         onClick={() => handleEditTutor(tutor)}
-                      />
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            handleEditTutor(tutor);
+                          }
+                        }}
+                      >
+                        <Icon 
+                          as={FaEdit}
+                          color="#4A0000"
+                          boxSize={5}
+                          _hover={{ 
+                            color: "#640101"
+                          }}
+                          transition="all 0.3s ease"
+                        />
+                      </Box>
                     </Tooltip>
                     
                     {tutor.status === 'active' ? (
                       <Tooltip label="Suspend Tutor" placement="top">
-                        <Icon 
-                          as={FaLock}
-                          color="#640101"
-                          boxSize={5}
+                        <Box 
+                          as="button"
+                          role="button"
+                          tabIndex={0}
                           cursor="pointer"
                           _hover={{ 
-                            color: "#4A0000",
                             transform: "scale(1.2)"
                           }}
                           transition="all 0.3s ease"
                           onClick={() => handleStatusChange(tutor.id, 'suspended')}
-                        />
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              handleStatusChange(tutor.id, 'suspended');
+                            }
+                          }}
+                        >
+                          <Icon 
+                            as={FaLock}
+                            color="#640101"
+                            boxSize={5}
+                            _hover={{ 
+                              color: "#4A0000"
+                            }}
+                            transition="all 0.3s ease"
+                          />
+                        </Box>
                       </Tooltip>
                     ) : (
                       <Tooltip label="Activate Tutor" placement="top">
-                        <Icon 
-                          as={FaUnlock}
-                          color="#640101"
-                          boxSize={5}
+                        <Box 
+                          as="button"
+                          role="button"
+                          tabIndex={0}
                           cursor="pointer"
                           _hover={{ 
-                            color: "#4A0000",
                             transform: "scale(1.2)"
                           }}
                           transition="all 0.3s ease"
                           onClick={() => handleStatusChange(tutor.id, 'active')}
-                        />
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              handleStatusChange(tutor.id, 'active');
+                            }
+                          }}
+                        >
+                          <Icon 
+                            as={FaUnlock}
+                            color="#640101"
+                            boxSize={5}
+                            _hover={{ 
+                              color: "#4A0000"
+                            }}
+                            transition="all 0.3s ease"
+                          />
+                        </Box>
                       </Tooltip>
                     )}
                   </Flex>

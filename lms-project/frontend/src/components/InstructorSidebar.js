@@ -48,19 +48,17 @@ const THEME_COLORS = {
 
 const FontStyles = () => (
   <Global
-    styles={`
-      @import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;700&display=swap');
-      @font-face {
-        font-family: 'Lora';
-        font-weight: 400;
-        font-style: normal;
-      }
-      @font-face {
-        font-family: 'Montserrat Alternates';
-        font-weight: 400;
-        font-style: normal;
-      }
-    `}
+    styles={`@import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;700&display=swap');
+@font-face {
+  font-family: 'Lora';
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Montserrat Alternates';
+  font-weight: 400;
+  font-style: normal;
+}`}
   />
 );
 

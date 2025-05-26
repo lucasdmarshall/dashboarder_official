@@ -22,19 +22,30 @@ import {
   Text,
   useToast,
   Tooltip,
-  Icon
+  Icon,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  HStack,
+  Spinner,
+  SimpleGrid,
+  Button
 } from '@chakra-ui/react';
 import { 
   FaEye, 
   FaCheck, 
-  FaTimes 
+  FaTimes,
+  FaSearch,
+  FaSync
 } from 'react-icons/fa';
 import AdminSidebar from '../components/AdminSidebar';
 import { TutorContext } from '../contexts/TutorContext';
 
 const AdminTutorRegistrationsPage = () => {
   const [selectedRegistration, setSelectedRegistration] = useState(null);
-  const { registrations, approveRegistration, rejectRegistration } = useContext(TutorContext);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { registrations, approveRegistration, rejectRegistration, isLoading, fetchRegistrations } = useContext(TutorContext);
 
   const handleViewDetails = (registration) => {
     setSelectedRegistration(registration);
@@ -47,6 +58,24 @@ const AdminTutorRegistrationsPage = () => {
   const handleReject = (id) => {
     rejectRegistration(id);
   };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchRegistrations();
+    } catch (error) {
+      console.error('Error refreshing registrations:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Filter registrations based on search term
+  const filteredRegistrations = registrations.filter(reg =>
+    reg.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    reg.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    reg.specialization.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <Flex
@@ -90,7 +119,7 @@ const AdminTutorRegistrationsPage = () => {
         position="relative"
       >
         <Heading 
-          mb={8} 
+          mb={6} 
           color="#4A0000"
           fontWeight="bold"
           letterSpacing="wide"
@@ -107,126 +136,227 @@ const AdminTutorRegistrationsPage = () => {
             borderRadius="full"
           />
         </Heading>
-        
-        <Table 
-          variant="soft-rounded" 
-          bg="white" 
-          boxShadow="0 10px 30px rgba(100, 1, 1, 0.08)"
-          borderRadius="xl"
-          overflow="hidden"
-          border="1px solid"
-          borderColor="gray.100"
-        >
-          <Thead 
-            bg="gray.50"
-            borderBottom="2px solid #640101"
+
+        {/* Search Bar with Refresh Button */}
+        <HStack mb={6} spacing={4}>
+          <InputGroup maxW="400px">
+            <InputLeftElement>
+              <Icon as={FaSearch} color="gray.400" />
+            </InputLeftElement>
+            <Input
+              placeholder="Search by name, email, or specialization..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              bg="white"
+              borderColor="gray.200"
+              _focus={{ borderColor: "#640101", boxShadow: "0 0 0 1px #640101" }}
+            />
+          </InputGroup>
+          <Button
+            leftIcon={<FaSync />}
+            onClick={handleRefresh}
+            isLoading={isRefreshing}
+            loadingText="Refreshing"
+            variant="outline"
+            borderColor="#640101"
+            color="#640101"
+            _hover={{ 
+              bg: "#640101", 
+              color: "white" 
+            }}
+            size="md"
           >
-            <Tr>
-              <Th color="#4A0000" fontWeight="bold">Name</Th>
-              <Th color="#4A0000" fontWeight="bold">Email</Th>
-              <Th color="#4A0000" fontWeight="bold">Date of Birth</Th>
-              <Th color="#4A0000" fontWeight="bold">Status</Th>
-              <Th color="#4A0000" fontWeight="bold">Actions</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {registrations.map(reg => (
-              <Tr 
-                key={reg.id}
-                _hover={{ 
-                  bg: "gray.50", 
-                  transform: "translateY(-2px)", 
-                  boxShadow: "0 4px 6px rgba(100, 1, 1, 0.05)"
-                }}
-                transition="all 0.3s ease"
-              >
-                <Td>{reg.name}</Td>
-                <Td>{reg.email}</Td>
-                <Td>{reg.dateOfBirth}</Td>
-                <Td>
-                  <Badge 
-                    bg={
-                      reg.status === 'pending' ? 'rgba(100, 1, 1, 0.1)' : 
-                      reg.status === 'approved' ? 'rgba(100, 1, 1, 0.1)' : 'rgba(100, 1, 1, 0.1)'
-                    }
-                    color={
-                      reg.status === 'pending' ? '#640101' : 
-                      reg.status === 'approved' ? '#640101' : '#640101'
-                    }
-                    borderWidth="1px"
-                    borderColor={
-                      reg.status === 'pending' ? 'rgba(100, 1, 1, 0.2)' : 
-                      reg.status === 'approved' ? 'rgba(100, 1, 1, 0.2)' : 'rgba(100, 1, 1, 0.2)'
-                    }
-                    fontWeight="semibold"
-                    textTransform="capitalize"
-                  >
-                    {reg.status}
-                  </Badge>
-                </Td>
-                <Td>
-                  <Flex alignItems="center" justifyContent="space-around">
-                    <Tooltip label="View Details" placement="top">
-                      <Icon 
-                        as={FaEye}
-                        color="#4A0000"
-                        boxSize={5}
-                        cursor="pointer"
-                        _hover={{ 
-                          color: "#640101",
-                          transform: "scale(1.2)"
-                        }}
-                        transition="all 0.3s ease"
-                        onClick={() => handleViewDetails(reg)}
-                      />
-                    </Tooltip>
-                    
-                    {reg.status === 'pending' && (
-                      <>
-                        <Tooltip label="Approve" placement="top">
-                          <Icon 
-                            as={FaCheck}
-                            color="green.500"
-                            boxSize={5}
-                            cursor="pointer"
-                            _hover={{ 
-                              color: "green.600",
-                              transform: "scale(1.2)"
-                            }}
-                            transition="all 0.3s ease"
-                            onClick={() => handleApprove(reg.id)}
-                          />
-                        </Tooltip>
-                        
-                        <Tooltip label="Reject" placement="top">
-                          <Icon 
-                            as={FaTimes}
-                            color="red.500"
-                            boxSize={5}
-                            cursor="pointer"
-                            _hover={{ 
-                              color: "red.600",
-                              transform: "scale(1.2)"
-                            }}
-                            transition="all 0.3s ease"
-                            onClick={() => handleReject(reg.id)}
-                          />
-                        </Tooltip>
-                      </>
-                    )}
-                  </Flex>
-                </Td>
+            Refresh
+          </Button>
+          <Text color="gray.600" fontSize="sm">
+            {filteredRegistrations.length} registration{filteredRegistrations.length !== 1 ? 's' : ''} found
+          </Text>
+        </HStack>
+        
+        {isLoading ? (
+          <Flex justify="center" align="center" h="200px">
+            <Spinner size="xl" color="#640101" />
+            <Text ml={4} color="#640101">Loading registrations...</Text>
+          </Flex>
+        ) : (
+          <Table 
+            variant="soft-rounded" 
+            bg="white" 
+            boxShadow="0 10px 30px rgba(100, 1, 1, 0.08)"
+            borderRadius="xl"
+            overflow="hidden"
+            border="1px solid"
+            borderColor="gray.100"
+          >
+            <Thead 
+              bg="gray.50"
+              borderBottom="2px solid #640101"
+            >
+              <Tr>
+                <Th color="#4A0000" fontWeight="bold">No.</Th>
+                <Th color="#4A0000" fontWeight="bold">Name</Th>
+                <Th color="#4A0000" fontWeight="bold">Email</Th>
+                <Th color="#4A0000" fontWeight="bold">Education</Th>
+                <Th color="#4A0000" fontWeight="bold">Status</Th>
+                <Th color="#4A0000" fontWeight="bold">Actions</Th>
               </Tr>
-            ))}
-          </Tbody>
-        </Table>
+            </Thead>
+            <Tbody>
+              {filteredRegistrations.map((reg, index) => (
+                <Tr 
+                  key={reg.id}
+                  _hover={{ 
+                    bg: "gray.50", 
+                    transform: "translateY(-2px)", 
+                    boxShadow: "0 4px 6px rgba(100, 1, 1, 0.05)"
+                  }}
+                  transition="all 0.3s ease"
+                >
+                  <Td fontWeight="medium">{index + 1}</Td>
+                  <Td fontWeight="medium">{reg.name}</Td>
+                  <Td>{reg.email}</Td>
+                  <Td>{reg.education}</Td>
+                  <Td>
+                    <Badge 
+                      bg={
+                        reg.status === 'pending' ? 'rgba(255, 193, 7, 0.1)' : 
+                        reg.status === 'approved' ? 'rgba(40, 167, 69, 0.1)' : 
+                        reg.status === 'rejected' ? 'rgba(220, 53, 69, 0.1)' : 'rgba(100, 1, 1, 0.1)'
+                      }
+                      color={
+                        reg.status === 'pending' ? '#856404' : 
+                        reg.status === 'approved' ? '#155724' : 
+                        reg.status === 'rejected' ? '#721c24' : '#640101'
+                      }
+                      borderWidth="1px"
+                      borderColor={
+                        reg.status === 'pending' ? 'rgba(255, 193, 7, 0.2)' : 
+                        reg.status === 'approved' ? 'rgba(40, 167, 69, 0.2)' : 
+                        reg.status === 'rejected' ? 'rgba(220, 53, 69, 0.2)' : 'rgba(100, 1, 1, 0.2)'
+                      }
+                      fontWeight="semibold"
+                      textTransform="capitalize"
+                      px={3}
+                      py={1}
+                    >
+                      {reg.status}
+                    </Badge>
+                  </Td>
+                  <Td>
+                    <Flex alignItems="center" justifyContent="space-around">
+                      <Tooltip label="View Details" placement="top">
+                        <Box 
+                          as="button"
+                          role="button"
+                          tabIndex={0}
+                          cursor="pointer"
+                          _hover={{ 
+                            transform: "scale(1.2)"
+                          }}
+                          transition="all 0.3s ease"
+                          onClick={() => handleViewDetails(reg)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              handleViewDetails(reg);
+                            }
+                          }}
+                        >
+                          <Icon 
+                            as={FaEye}
+                            color="#4A0000"
+                            boxSize={5}
+                            _hover={{ 
+                              color: "#640101"
+                            }}
+                            transition="all 0.3s ease"
+                          />
+                        </Box>
+                      </Tooltip>
+                      
+                      {reg.status === 'pending' && (
+                        <>
+                          <Tooltip label="Approve" placement="top">
+                            <Box 
+                              as="button"
+                              role="button"
+                              tabIndex={0}
+                              cursor="pointer"
+                              _hover={{ 
+                                transform: "scale(1.2)"
+                              }}
+                              transition="all 0.3s ease"
+                              onClick={() => handleApprove(reg.id)}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  handleApprove(reg.id);
+                                }
+                              }}
+                            >
+                              <Icon 
+                                as={FaCheck}
+                                color="green.500"
+                                boxSize={5}
+                                _hover={{ 
+                                  color: "green.600"
+                                }}
+                                transition="all 0.3s ease"
+                              />
+                            </Box>
+                          </Tooltip>
+                          
+                          <Tooltip label="Reject" placement="top">
+                            <Box 
+                              as="button"
+                              role="button"
+                              tabIndex={0}
+                              cursor="pointer"
+                              _hover={{ 
+                                transform: "scale(1.2)"
+                              }}
+                              transition="all 0.3s ease"
+                              onClick={() => handleReject(reg.id)}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  handleReject(reg.id);
+                                }
+                              }}
+                            >
+                              <Icon 
+                                as={FaTimes}
+                                color="red.500"
+                                boxSize={5}
+                                _hover={{ 
+                                  color: "red.600"
+                                }}
+                                transition="all 0.3s ease"
+                              />
+                            </Box>
+                          </Tooltip>
+                        </>
+                      )}
+                    </Flex>
+                  </Td>
+                </Tr>
+              ))}
+              {filteredRegistrations.length === 0 && (
+                <Tr>
+                  <Td colSpan={6} textAlign="center" py={8}>
+                    <Text color="gray.500" fontSize="lg">
+                      {searchTerm ? 'No registrations match your search.' : 'No instructor registrations found.'}
+                    </Text>
+                  </Td>
+                </Tr>
+              )}
+            </Tbody>
+          </Table>
+        )}
 
         {/* Registration Details Modal */}
         {selectedRegistration && (
           <Modal 
             isOpen={!!selectedRegistration} 
             onClose={() => setSelectedRegistration(null)}
-            size="lg"
+            size="2xl"
           >
             <ModalOverlay 
               bg="blackAlpha.300"
@@ -235,6 +365,8 @@ const AdminTutorRegistrationsPage = () => {
             <ModalContent
               borderRadius="xl"
               boxShadow="0 15px 50px rgba(100, 1, 1, 0.1)"
+              maxH="80vh"
+              overflowY="auto"
             >
               <ModalHeader
                 bg="gray.50"
@@ -244,39 +376,116 @@ const AdminTutorRegistrationsPage = () => {
                 fontWeight="bold"
                 textAlign="center"
               >
-                Tutor Registration Details
+                Instructor Registration Details
               </ModalHeader>
               <ModalCloseButton 
                 color="#4A0000"
                 _hover={{ color: "#640101" }}
               />
-              <ModalBody>
-                <VStack 
-                  align="start" 
-                  spacing={4}
-                  divider={<Divider borderColor="gray.200" />}
-                >
+              <ModalBody p={6}>
+                <VStack align="stretch" spacing={6}>
+                  
+                  {/* Basic Information */}
                   <Box>
-                    <Text fontWeight="bold" color="#4A0000" mb={1}>Name</Text>
-                    <Text>{selectedRegistration.name}</Text>
+                    <Heading size="md" color="#640101" mb={4}>Basic Information</Heading>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                      <Box>
+                        <Text fontWeight="bold" color="#4A0000" mb={1}>Name</Text>
+                        <Text>{selectedRegistration.name}</Text>
+                      </Box>
+                      <Box>
+                        <Text fontWeight="bold" color="#4A0000" mb={1}>Email</Text>
+                        <Text>{selectedRegistration.email}</Text>
+                      </Box>
+                      <Box>
+                        <Text fontWeight="bold" color="#4A0000" mb={1}>Phone</Text>
+                        <Text>{selectedRegistration.phone || 'Not provided'}</Text>
+                      </Box>
+                      <Box>
+                        <Text fontWeight="bold" color="#4A0000" mb={1}>Status</Text>
+                        <Badge
+                          colorScheme={
+                            selectedRegistration.status === 'pending' ? 'orange' :
+                            selectedRegistration.status === 'approved' ? 'green' : 'red'
+                          }
+                          textTransform="capitalize"
+                        >
+                          {selectedRegistration.status}
+                        </Badge>
+                      </Box>
+                    </SimpleGrid>
                   </Box>
+
+                  <Divider />
+
+                  {/* Professional Background */}
                   <Box>
-                    <Text fontWeight="bold" color="#4A0000" mb={1}>Email</Text>
-                    <Text>{selectedRegistration.email}</Text>
+                    <Heading size="md" color="#640101" mb={4}>Professional Background</Heading>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                      <Box>
+                        <Text fontWeight="bold" color="#4A0000" mb={1}>Specialization</Text>
+                        <Text>{selectedRegistration.specialization}</Text>
+                      </Box>
+                      <Box>
+                        <Text fontWeight="bold" color="#4A0000" mb={1}>Education</Text>
+                        <Text>{selectedRegistration.education}</Text>
+                      </Box>
+                      <Box>
+                        <Text fontWeight="bold" color="#4A0000" mb={1}>Experience</Text>
+                        <Text>{selectedRegistration.experience}</Text>
+                      </Box>
+                    </SimpleGrid>
                   </Box>
+
+                  {selectedRegistration.bio && (
+                    <>
+                      <Divider />
+                      <Box>
+                        <Text fontWeight="bold" color="#4A0000" mb={2}>About / Bio</Text>
+                        <Text>{selectedRegistration.bio}</Text>
+                      </Box>
+                    </>
+                  )}
+
+                  {selectedRegistration.certifications && (
+                    <>
+                      <Divider />
+                      <Box>
+                        <Text fontWeight="bold" color="#4A0000" mb={2}>Certifications & Qualifications</Text>
+                        <Text whiteSpace="pre-wrap">{selectedRegistration.certifications}</Text>
+                      </Box>
+                    </>
+                  )}
+
+                  <Divider />
+
+                  {/* Application Timeline */}
                   <Box>
-                    <Text fontWeight="bold" color="#4A0000" mb={1}>Date of Birth</Text>
-                    <Text>{selectedRegistration.dateOfBirth}</Text>
-                  </Box>
-                  <Box>
-                    <Text fontWeight="bold" color="#4A0000" mb={1}>Status</Text>
-                    <Text>{selectedRegistration.status}</Text>
-                  </Box>
-                  <Box>
-                    <Text fontWeight="bold" color="#4A0000" mb={1}>Documents</Text>
-                    {selectedRegistration.documents.map((doc, index) => (
-                      <Text key={index}>{doc}</Text>
-                    ))}
+                    <Heading size="md" color="#640101" mb={4}>Application Timeline</Heading>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                      <Box>
+                        <Text fontWeight="bold" color="#4A0000" mb={1}>Submitted At</Text>
+                        <Text>
+                          {selectedRegistration.submitted_at 
+                            ? new Date(selectedRegistration.submitted_at).toLocaleString()
+                            : 'N/A'
+                          }
+                        </Text>
+                      </Box>
+                      {selectedRegistration.reviewed_at && (
+                        <Box>
+                          <Text fontWeight="bold" color="#4A0000" mb={1}>Reviewed At</Text>
+                          <Text>{new Date(selectedRegistration.reviewed_at).toLocaleString()}</Text>
+                        </Box>
+                      )}
+                    </SimpleGrid>
+                    
+                    {selectedRegistration.review_notes && (
+                      <Box mt={4}>
+                        <Text fontWeight="bold" color="#4A0000" mb={1}>Review Notes</Text>
+                        <Text>{selectedRegistration.review_notes}</Text>
+                      </Box>
+                    )}
                   </Box>
                 </VStack>
               </ModalBody>
