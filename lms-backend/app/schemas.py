@@ -362,6 +362,11 @@ class ApprovedInstructorRead(BaseModel):
     is_active: bool
     created_at: datetime
     
+    # Subscription status fields
+    has_red_mark: bool = False
+    subscription_expires_soon: bool = False
+    subscription_end_date: Optional[datetime] = None
+    
     class Config:
         from_attributes = True
 
@@ -392,4 +397,45 @@ class InstructorProfileRead(BaseModel):
     updated_at: Optional[datetime] = None
 
     class Config:
-        from_attributes = True 
+        from_attributes = True
+
+# Red Mark Subscription schemas
+class RedMarkSubscriptionCreate(BaseModel):
+    subscription_type: str = Field(..., description="monthly or annual")
+    price_paid: float = Field(..., description="Amount paid for subscription")
+    currency: str = "USD"
+    payment_method: str = Field(..., description="Payment method used")
+    payment_reference: Optional[str] = None
+    auto_renew: bool = True
+
+class RedMarkSubscriptionRead(BaseModel):
+    id: UUID4
+    instructor_id: UUID4
+    is_active: bool
+    subscription_type: Optional[str] = None
+    price_paid: Optional[float] = None
+    currency: Optional[str] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    next_billing_date: Optional[datetime] = None
+    auto_renew: bool
+    payment_method: Optional[str] = None
+    payment_reference: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+class RedMarkSubscriptionUpdate(BaseModel):
+    is_active: Optional[bool] = None
+    auto_renew: Optional[bool] = None
+
+class SubscriptionStatusResponse(BaseModel):
+    has_red_mark: bool
+    is_active: bool
+    subscription_type: Optional[str] = None
+    end_date: Optional[datetime] = None
+    expires_soon: bool = False
+    days_until_expiry: Optional[int] = None 

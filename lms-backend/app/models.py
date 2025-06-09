@@ -293,3 +293,34 @@ class InstructorProfile(Base):
     
     # Relationship
     instructor = relationship("User", backref="instructor_profile")
+
+# Red Mark Subscription model for tracking subscription status
+class RedMarkSubscription(Base):
+    __tablename__ = "red_mark_subscriptions"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    instructor_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    
+    # Subscription details
+    is_active = Column(Boolean, default=False, nullable=False)
+    subscription_type = Column(String(50), nullable=True)  # 'monthly', 'annual'
+    price_paid = Column(Float, nullable=True)  # Amount paid (e.g., 10.00)
+    currency = Column(String(10), default="USD", nullable=True)  # Currency code
+    
+    # Dates
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
+    next_billing_date = Column(DateTime, nullable=True)
+    
+    # Billing and payment
+    auto_renew = Column(Boolean, default=True, nullable=False)
+    payment_method = Column(String(100), nullable=True)  # 'credit_card', 'paypal', etc.
+    payment_reference = Column(String(255), nullable=True)  # Payment transaction ID
+    
+    # Status tracking
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())
+    cancelled_at = Column(DateTime, nullable=True)
+    
+    # Relationship
+    instructor = relationship("User", backref="red_mark_subscription")

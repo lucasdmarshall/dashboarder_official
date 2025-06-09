@@ -42,6 +42,8 @@ import * as d3 from 'd3';
 import * as topojson from 'topojson-client';
 
 import StudentSidebar from '../components/StudentSidebar';
+import { useSubscription } from '../contexts/subscriptionContext';
+import VerifiedBadge, { InstructorNameWithBadge } from '../components/VerifiedBadge';
 
 const tutorData = [
   { 

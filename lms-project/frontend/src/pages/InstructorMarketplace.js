@@ -47,18 +47,18 @@ const generateMarketplaceItems = () => {
       icon: FaCheckCircle,
       description: 'Exclusive instructor recognition and enhanced visibility'
     },
-    {
-      id: 2,
-      title: 'Levels',
-      price: '$20.00',
-      privileges: [
-        'Unlock Advanced Student Tracking',
-        'Performance Tier Visualization',
-        'Detailed Progress Metrics'
-      ],
-      icon: FaChartLine,
-      description: 'Comprehensive student performance insights'
-    }
+    // {
+    //   id: 2,
+    //   title: 'Levels',
+    //   price: '$20.00',
+    //   privileges: [
+    //     'Unlock Advanced Student Tracking',
+    //     'Performance Tier Visualization',
+    //     'Detailed Progress Metrics'
+    //   ],
+    //   icon: FaChartLine,
+    //   description: 'Comprehensive student performance insights'
+    // }
   ];
 };
 

@@ -35,7 +35,8 @@ import {
   FaChevronRight,
   FaCalendarAlt,
   FaFileAlt,
-  FaIdCard
+  FaIdCard,
+  FaStore
 } from 'react-icons/fa';
 
 const THEME_COLORS = {
@@ -181,6 +182,11 @@ const InstructorSidebar = () => {
       icon: FaUserCircle, 
       label: 'My Profile', 
       path: '/instructor-profile' 
+    },
+    { 
+      icon: FaStore, 
+      label: 'Marketplace', 
+      path: '/instructor-marketplace' 
     }
   ];
 

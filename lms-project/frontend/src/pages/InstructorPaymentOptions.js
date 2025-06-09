@@ -389,7 +389,7 @@ const InstructorPaymentOptions = () => {
     }
 
     // Navigate to final payment page
-    navigate('/instructor-final-payment', {
+    navigate('/instructor-checkout', {
       state: {
         itemId,
         country: selectedCountry,

@@ -15,7 +15,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 import atexit
 
 from .database import get_db, engine, Base
-from .models import User, Institution, UserRole, Review, Course, Post, get_password_hash, verify_password, InstitutionForm, FormField, StudentApplication, EnrolledStudent, InstructorRegistration, InstructorProfile
+from .models import User, Institution, UserRole, Review, Course, Post, get_password_hash, verify_password, InstitutionForm, FormField, StudentApplication, EnrolledStudent, InstructorRegistration, InstructorProfile, RedMarkSubscription
 from .schemas import (
     UserRead, UserCreate, UserUpdate, LoginResponse, InstitutionCreate, InstitutionRead, InstitutionUpdate,
     InstitutionProfileRead, InstitutionProfileUpdate, ReviewCreate, ReviewRead, CourseCreate, CourseRead, CourseUpdate,
@@ -23,7 +23,8 @@ from .schemas import (
     FormFieldCreate, FormFieldRead, FormWithFieldsRead, StudentApplicationCreate, StudentApplicationRead,
     ApplicationSubmissionData, ApplicationStatusUpdate, EnrolledStudentCreate, EnrolledStudentUpdate, EnrolledStudentRead,
     InstructorRegistrationCreate, InstructorRegistrationRead, InstructorRegistrationUpdate, ApprovedInstructorRead,
-    InstructorProfileCreate, InstructorProfileUpdate, InstructorProfileRead
+    InstructorProfileCreate, InstructorProfileUpdate, InstructorProfileRead, RedMarkSubscriptionCreate, 
+    RedMarkSubscriptionRead, RedMarkSubscriptionUpdate, SubscriptionStatusResponse
 )
 from .auth import (
     create_access_token, current_active_user, current_admin_user, 
@@ -2541,15 +2542,52 @@ def get_approved_instructors(
     db: Session = Depends(get_db),
     admin_user: User = Depends(current_admin_user)
 ):
-    """Get all approved instructors - admin only (View Tutors page)"""
+    """Get all approved instructors with subscription status - admin only (View Tutors page)"""
     try:
         instructors = db.query(User).filter(
             User.role == UserRole.INSTRUCTOR,
             User.is_active == True
         ).order_by(User.created_at.desc()).all()
         
+        # Get all instructor IDs to fetch subscription statuses in bulk
+        instructor_ids = [instructor.id for instructor in instructors]
+        
+        # Get all active subscriptions for these instructors
+        subscriptions = db.query(RedMarkSubscription).filter(
+            RedMarkSubscription.instructor_id.in_(instructor_ids),
+            RedMarkSubscription.is_active == True
+        ).all()
+        
+        # Create a map of instructor_id -> subscription
+        subscription_map = {sub.instructor_id: sub for sub in subscriptions}
+        
+        now = datetime.utcnow()
         result = []
+        
         for instructor in instructors:
+            subscription = subscription_map.get(instructor.id)
+            
+            # Check subscription status
+            has_red_mark = False
+            expires_soon = False
+            end_date = None
+            
+            if subscription:
+                # Check if subscription is still valid
+                is_expired = subscription.end_date and now > subscription.end_date
+                
+                if not is_expired:
+                    has_red_mark = True
+                    end_date = subscription.end_date
+                    
+                    # Check if expires soon (within 7 days)
+                    if subscription.end_date:
+                        days_until_expiry = (subscription.end_date - now).days
+                        expires_soon = days_until_expiry <= 7 and days_until_expiry > 0
+                else:
+                    # Auto-deactivate expired subscription
+                    subscription.is_active = False
+            
             instructor_data = ApprovedInstructorRead(
                 id=instructor.id,
                 name=instructor.name,
@@ -2559,9 +2597,15 @@ def get_approved_instructors(
                 phone=instructor.phone,
                 status="Dashboarder Certified",
                 is_active=instructor.is_active,
-                created_at=instructor.created_at
+                created_at=instructor.created_at,
+                has_red_mark=has_red_mark,
+                subscription_expires_soon=expires_soon,
+                subscription_end_date=end_date
             )
             result.append(instructor_data)
+        
+        # Commit any subscription status updates
+        db.commit()
         
         return result
     except Exception as e:
@@ -2591,8 +2635,27 @@ def delete_instructor(
                 detail="Instructor not found",
             )
         
+        # Delete any related Red Mark subscriptions first to avoid foreign key constraint violations
+        red_mark_subscriptions = db.query(RedMarkSubscription).filter(
+            RedMarkSubscription.instructor_id == instructor_id
+        ).all()
+        
+        for subscription in red_mark_subscriptions:
+            db.delete(subscription)
+        
+        # Delete any related instructor profiles
+        instructor_profiles = db.query(InstructorProfile).filter(
+            InstructorProfile.instructor_id == instructor_id
+        ).all()
+        
+        for profile in instructor_profiles:
+            db.delete(profile)
+        
+        # Now delete the instructor
         db.delete(instructor)
         db.commit()
+        
+        logger.info(f"Instructor {instructor.name} and {len(red_mark_subscriptions)} related subscriptions deleted successfully")
         
         return {"message": f"Instructor {instructor.name} deleted successfully"}
     except HTTPException:
@@ -2778,4 +2841,473 @@ def update_instructor_profile(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error updating instructor profile: {str(e)}",
+        )
+
+# Red Mark Subscription endpoints
+
+# Get instructor's Red Mark subscription status
+@app.get("/api/instructors/{instructor_id}/subscription/red-mark", response_model=SubscriptionStatusResponse, tags=["subscriptions"])
+def get_red_mark_subscription_status(
+    instructor_id: uuid.UUID,
+    db: Session = Depends(get_db)
+):
+    """Get Red Mark subscription status for any instructor - public endpoint for displaying badges"""
+    try:
+        # Get instructor
+        instructor = db.query(User).filter(
+            User.id == instructor_id,
+            User.role == UserRole.INSTRUCTOR
+        ).first()
+        
+        if not instructor:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Instructor not found"
+            )
+        
+        # Get subscription
+        subscription = db.query(RedMarkSubscription).filter(
+            RedMarkSubscription.instructor_id == instructor_id
+        ).first()
+        
+        if not subscription or not subscription.is_active:
+            return SubscriptionStatusResponse(
+                has_red_mark=False,
+                is_active=False
+            )
+        
+        # Check if subscription is still valid
+        now = datetime.utcnow()
+        is_expired = subscription.end_date and now > subscription.end_date
+        
+        if is_expired:
+            # Auto-deactivate expired subscription
+            subscription.is_active = False
+            db.commit()
+            
+            return SubscriptionStatusResponse(
+                has_red_mark=False,
+                is_active=False
+            )
+        
+        # Calculate expiry info
+        expires_soon = False
+        days_until_expiry = None
+        
+        if subscription.end_date:
+            days_until_expiry = (subscription.end_date - now).days
+            expires_soon = days_until_expiry <= 7 and days_until_expiry > 0
+        
+        return SubscriptionStatusResponse(
+            has_red_mark=True,
+            is_active=True,
+            subscription_type=subscription.subscription_type,
+            end_date=subscription.end_date,
+            expires_soon=expires_soon,
+            days_until_expiry=days_until_expiry
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting subscription status: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting subscription status: {str(e)}"
+        )
+
+# Get current instructor's subscription status
+@app.get("/api/instructors/me/subscription/red-mark", response_model=SubscriptionStatusResponse, tags=["subscriptions"])
+def get_my_red_mark_subscription_status(
+    db: Session = Depends(get_db),
+    instructor: User = Depends(current_instructor_user)
+):
+    """Get current instructor's Red Mark subscription status"""
+    return get_red_mark_subscription_status(instructor.id, db)
+
+# Purchase/Activate Red Mark subscription
+@app.post("/api/instructors/me/subscription/red-mark", response_model=RedMarkSubscriptionRead, tags=["subscriptions"])
+def purchase_red_mark_subscription(
+    subscription_data: RedMarkSubscriptionCreate,
+    db: Session = Depends(get_db),
+    instructor: User = Depends(current_instructor_user)
+):
+    """Purchase and activate Red Mark subscription for current instructor"""
+    try:
+        # Check if instructor already has an active subscription
+        existing_subscription = db.query(RedMarkSubscription).filter(
+            RedMarkSubscription.instructor_id == instructor.id
+        ).first()
+        
+        if existing_subscription and existing_subscription.is_active:
+            # Check if still valid
+            now = datetime.utcnow()
+            if existing_subscription.end_date and now < existing_subscription.end_date:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Instructor already has an active Red Mark subscription"
+                )
+        
+        # Calculate subscription dates
+        now = datetime.utcnow()
+        if subscription_data.subscription_type == "annual":
+            end_date = now + timedelta(days=365)
+            next_billing_date = end_date
+        else:  # monthly
+            end_date = now + timedelta(days=30)
+            next_billing_date = end_date
+        
+        # Create or update subscription
+        if existing_subscription:
+            # Update existing subscription
+            existing_subscription.is_active = True
+            existing_subscription.subscription_type = subscription_data.subscription_type
+            existing_subscription.price_paid = subscription_data.price_paid
+            existing_subscription.currency = subscription_data.currency
+            existing_subscription.start_date = now
+            existing_subscription.end_date = end_date
+            existing_subscription.next_billing_date = next_billing_date
+            existing_subscription.auto_renew = subscription_data.auto_renew
+            existing_subscription.payment_method = subscription_data.payment_method
+            existing_subscription.payment_reference = subscription_data.payment_reference
+            existing_subscription.cancelled_at = None
+            existing_subscription.updated_at = now
+            
+            subscription = existing_subscription
+        else:
+            # Create new subscription
+            subscription = RedMarkSubscription(
+                instructor_id=instructor.id,
+                is_active=True,
+                subscription_type=subscription_data.subscription_type,
+                price_paid=subscription_data.price_paid,
+                currency=subscription_data.currency,
+                start_date=now,
+                end_date=end_date,
+                next_billing_date=next_billing_date,
+                auto_renew=subscription_data.auto_renew,
+                payment_method=subscription_data.payment_method,
+                payment_reference=subscription_data.payment_reference
+            )
+            db.add(subscription)
+        
+        # Update instructor's red_mark status in User table
+        instructor.red_mark = True
+        
+        db.commit()
+        db.refresh(subscription)
+        
+        logger.info(f"Red Mark subscription activated for instructor {instructor.id}")
+        
+        return subscription
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error purchasing Red Mark subscription: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error purchasing Red Mark subscription: {str(e)}"
+        )
+
+# Cancel Red Mark subscription
+@app.delete("/api/instructors/me/subscription/red-mark", tags=["subscriptions"])
+def cancel_red_mark_subscription(
+    db: Session = Depends(get_db),
+    instructor: User = Depends(current_instructor_user)
+):
+    """Cancel current instructor's Red Mark subscription"""
+    try:
+        subscription = db.query(RedMarkSubscription).filter(
+            RedMarkSubscription.instructor_id == instructor.id
+        ).first()
+        
+        if not subscription or not subscription.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No active Red Mark subscription found"
+            )
+        
+        # Cancel subscription
+        subscription.is_active = False
+        subscription.auto_renew = False
+        subscription.cancelled_at = datetime.utcnow()
+        
+        # Update instructor's red_mark status
+        instructor.red_mark = False
+        
+        db.commit()
+        
+        logger.info(f"Red Mark subscription cancelled for instructor {instructor.id}")
+        
+        return {"message": "Red Mark subscription cancelled successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error cancelling Red Mark subscription: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error cancelling Red Mark subscription: {str(e)}"
+        )
+
+# Bulk subscription status check (for admin panel, lists, etc.)
+@app.post("/api/subscriptions/bulk-check", tags=["subscriptions"])
+def bulk_check_subscription_status(
+    instructor_ids: List[uuid.UUID],
+    db: Session = Depends(get_db)
+):
+    """Check Red Mark subscription status for multiple instructors at once"""
+    try:
+        statuses = {}
+        
+        # Get all subscriptions for the provided instructor IDs
+        subscriptions = db.query(RedMarkSubscription).filter(
+            RedMarkSubscription.instructor_id.in_(instructor_ids),
+            RedMarkSubscription.is_active == True
+        ).all()
+        
+        # Create a map of instructor_id -> subscription
+        subscription_map = {sub.instructor_id: sub for sub in subscriptions}
+        
+        now = datetime.utcnow()
+        
+        for instructor_id in instructor_ids:
+            subscription = subscription_map.get(instructor_id)
+            
+            if not subscription:
+                statuses[str(instructor_id)] = SubscriptionStatusResponse(
+                    has_red_mark=False,
+                    is_active=False
+                )
+                continue
+            
+            # Check if expired
+            is_expired = subscription.end_date and now > subscription.end_date
+            
+            if is_expired:
+                statuses[str(instructor_id)] = SubscriptionStatusResponse(
+                    has_red_mark=False,
+                    is_active=False
+                )
+                continue
+            
+            # Calculate expiry info
+            expires_soon = False
+            days_until_expiry = None
+            
+            if subscription.end_date:
+                days_until_expiry = (subscription.end_date - now).days
+                expires_soon = days_until_expiry <= 7 and days_until_expiry > 0
+            
+            statuses[str(instructor_id)] = SubscriptionStatusResponse(
+                has_red_mark=True,
+                is_active=True,
+                subscription_type=subscription.subscription_type,
+                end_date=subscription.end_date,
+                expires_soon=expires_soon,
+                days_until_expiry=days_until_expiry
+            )
+        
+        return statuses
+        
+    except Exception as e:
+        logger.error(f"Error in bulk subscription check: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error in bulk subscription check: {str(e)}"
+        )
+
+# Test endpoint to set up Lucc Graham with Red Mark subscription
+@app.post("/api/test/setup-lucc-graham", tags=["test"])
+def setup_lucc_graham_subscription(
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(current_admin_user)
+):
+    """Test endpoint to set up Lucc Graham with Red Mark subscription expiring in 7 minutes"""
+    try:
+        # Find or create Lucc Graham instructor
+        lucc_graham = db.query(User).filter(
+            User.email == "lucc.graham@example.com"
+        ).first()
+        
+        if not lucc_graham:
+            # Create Lucc Graham instructor
+            lucc_graham = User(
+                email="lucc.graham@example.com",
+                name="Lucc Graham",
+                role=UserRole.INSTRUCTOR,
+                bio="Expert instructor with advanced teaching credentials",
+                specialization="Mathematics and Computer Science",
+                phone="+1-555-0123",
+                is_active=True,
+                is_verified=True,
+                red_mark=True
+            )
+            lucc_graham.set_password("password123")  # Set a default password
+            db.add(lucc_graham)
+            db.flush()  # Get the ID
+        
+        # Find existing subscription
+        existing_subscription = db.query(RedMarkSubscription).filter(
+            RedMarkSubscription.instructor_id == lucc_graham.id
+        ).first()
+        
+        # Create new subscription expiring in 7 minutes
+        now = datetime.utcnow()
+        expiry_date = now + timedelta(minutes=7)
+        
+        if existing_subscription:
+            # Update existing subscription
+            existing_subscription.is_active = True
+            existing_subscription.subscription_type = "monthly"
+            existing_subscription.price_paid = 10.00
+            existing_subscription.currency = "USD"
+            existing_subscription.start_date = now - timedelta(days=23)  # Started 23 days ago
+            existing_subscription.end_date = expiry_date  # Expires in 7 minutes
+            existing_subscription.next_billing_date = expiry_date
+            existing_subscription.auto_renew = True
+            existing_subscription.payment_method = "credit_card"
+            existing_subscription.payment_reference = "test_payment_lucc_graham"
+            existing_subscription.cancelled_at = None
+            subscription = existing_subscription
+        else:
+            # Create new subscription
+            subscription = RedMarkSubscription(
+                instructor_id=lucc_graham.id,
+                is_active=True,
+                subscription_type="monthly",
+                price_paid=10.00,
+                currency="USD",
+                start_date=now - timedelta(days=23),  # Started 23 days ago
+                end_date=expiry_date,  # Expires in 7 minutes
+                next_billing_date=expiry_date,
+                auto_renew=True,
+                payment_method="credit_card",
+                payment_reference="test_payment_lucc_graham"
+            )
+            db.add(subscription)
+        
+        # Update instructor's red_mark status
+        lucc_graham.red_mark = True
+        
+        db.commit()
+        db.refresh(lucc_graham)
+        db.refresh(subscription)
+        
+        return {
+            "message": "Lucc Graham set up successfully with Red Mark subscription",
+            "instructor": {
+                "id": str(lucc_graham.id),
+                "name": lucc_graham.name,
+                "email": lucc_graham.email,
+                "red_mark": lucc_graham.red_mark
+            },
+            "subscription": {
+                "id": str(subscription.id),
+                "is_active": subscription.is_active,
+                "subscription_type": subscription.subscription_type,
+                "end_date": subscription.end_date.isoformat(),
+                "expires_in_minutes": 7
+            }
+        }
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error setting up Lucc Graham: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error setting up Lucc Graham: {str(e)}"
+        )
+
+# Admin endpoint to get Red Mark subscribers for management table
+@app.get("/api/admin/red-mark-subscribers", tags=["admin"])
+def get_red_mark_subscribers(
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(current_admin_user)
+):
+    """Get all instructors with Red Mark subscriptions for admin management table"""
+    try:
+        # Get all active Red Mark subscriptions with instructor info
+        query = db.query(
+            RedMarkSubscription,
+            User
+        ).join(
+            User, RedMarkSubscription.instructor_id == User.id
+        ).filter(
+            RedMarkSubscription.is_active == True,
+            User.role == UserRole.INSTRUCTOR
+        ).order_by(RedMarkSubscription.start_date.desc())
+        
+        subscriptions_with_users = query.all()
+        
+        now = datetime.utcnow()
+        subscribers = []
+        
+        for subscription, instructor in subscriptions_with_users:
+            # Check if expired
+            is_expired = subscription.end_date and now > subscription.end_date
+            
+            if is_expired:
+                # Auto-deactivate expired subscription
+                subscription.is_active = False
+                instructor.red_mark = False
+                continue
+            
+            # Calculate remaining time
+            remaining_time = None
+            remaining_time_str = "Never expires"
+            is_verified = True
+            
+            if subscription.end_date:
+                time_diff = subscription.end_date - now
+                days = time_diff.days
+                hours, remainder = divmod(time_diff.seconds, 3600)
+                minutes, _ = divmod(remainder, 60)
+                
+                if days > 0:
+                    remaining_time_str = f"{days} day{'s' if days != 1 else ''}"
+                elif hours > 0:
+                    remaining_time_str = f"{hours} hour{'s' if hours != 1 else ''}"
+                else:
+                    remaining_time_str = f"{minutes} minute{'s' if minutes != 1 else ''}"
+                
+                # Mark as expiring soon if less than 7 days
+                if days < 7:
+                    remaining_time_str += " (Expires Soon)"
+            
+            subscribers.append({
+                "id": str(instructor.id),
+                "name": instructor.name,
+                "email": instructor.email,
+                "status": "Verified" if is_verified else "Not Verified",
+                "is_verified": is_verified,
+                "remaining_time": remaining_time_str,
+                "subscribed_at": subscription.start_date.isoformat() if subscription.start_date else None,
+                "subscription_type": subscription.subscription_type,
+                "price_paid": subscription.price_paid,
+                "currency": subscription.currency,
+                "last_transaction_id": subscription.payment_reference,
+                "auto_renew": subscription.auto_renew,
+                "end_date": subscription.end_date.isoformat() if subscription.end_date else None,
+                "expires_soon": subscription.end_date and (subscription.end_date - now).days < 7 if subscription.end_date else False
+            })
+        
+        # Commit any auto-deactivations
+        db.commit()
+        
+        return {
+            "subscribers": subscribers,
+            "total_count": len(subscribers),
+            "last_updated": now.isoformat()
+        }
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error getting Red Mark subscribers: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting Red Mark subscribers: {str(e)}"
         )

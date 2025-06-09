@@ -5,6 +5,7 @@ import { TutorProvider } from './contexts/TutorContext';
 import { StudentProvider } from './contexts/StudentContext';
 import { SettingsProvider } from './contexts/settingsContext';
 import { AuthProvider } from './contexts/authContext';
+import { SubscriptionProvider } from './contexts/subscriptionContext';
 import theme from './theme';
 
 // Import dashboard components
@@ -85,6 +86,9 @@ import InstructorTimeTable from './pages/InstructorTimeTable';
 import InstructorReportCard from './pages/InstructorReportCard';
 import InstructorHallPass from './pages/InstructorHallPass';
 import InstructorForum from './pages/InstructorForum';
+import InstructorMarketplace from './pages/InstructorMarketplace';
+import InstructorMarketplaceSubscription from './pages/InstructorMarketplaceSubscription';
+import InstructorCheckout from './pages/InstructorCheckout';
 import StudentFeed from './pages/StudentFeed';
 import InstructorFeed from './pages/InstructorFeed';
 import StudentViewInstitutionProfile from './pages/StudentViewInstitutionProfile';
@@ -136,104 +140,109 @@ function App() {
         <TutorProvider>
           <StudentProvider>
             <SettingsProvider>
-              <Router>
-                <Header />
-                <Routes>
-                  <Route path="/" element={<LandingPage />} />
-                  <Route path="/instructor-info" element={<InstructorInfo />} />
-                  <Route path="/signup" element={<SignUp />} />
-                  <Route path="/instructor-signup" element={<InstructorSignUp />} />
-                  <Route path="/student-dashboard" element={<StudentDashboard />} />
-                  <Route path="/instructor-dashboard" element={<InstructorDashboard />} />
-                  <Route path="/admin-dashboard" element={<AdminDashboard />} />
-                  <Route path="/institution-dashboard" element={<InstitutionDashboard />} />
-                  <Route path="/institution-dashboard/:institutionId" element={<InstitutionDashboard />} />
-                  <Route path="/instructor-registration" element={<InstructorRegistration />} />
-                  <Route path="/student-registration" element={<StudentRegistration />} />
-                  <Route path="/student-home" element={<StudentHome />} />
-                  <Route path="/instructor-home" element={<InstructorHome />} />
-                  <Route path="/admin-tutors-page" element={<AdminTutorsPage />} />
-                  <Route path="/admin-tutor-registrations-page" element={<AdminTutorRegistrationsPage />} />
-                  <Route path="/admin-manage-tutors-page" element={<AdminManageTutorsPage />} />
-                  <Route path="/admin-students-page" element={<AdminStudentsPage />} />
-                  <Route path="/admin-manage-institutions-page" element={<AdminManageInstitutionsPage />} />
-                  <Route path="/admin-settings-page" element={<AdminSettingsPage />} />
-                  <Route path="/admin-courses" element={<AdminCoursesPage />} />
-                  <Route path="/admin-courses-page" element={<AdminCoursesPage />} />
-                  <Route path="/instructor-create-course" element={<InstructorCreateCourse />} />
-                  <Route path="/instructor-courses" element={<InstructorCourses />} />
-                  <Route path="/instructor-edit-course/:courseId" element={<InstructorEditCourse />} />
-                  <Route path="/instructor-profile" element={<InstructorProfile />} />
-                  <Route path="/instructor-course-students/:courseId" element={<InstructorCourseStudents />} />
-                  <Route path="/instructor-students" element={<InstructorStudents />} />
-                  <Route path="/instructor-payment-options" element={<InstructorPaymentOptions />} />
-                  <Route path="/instructor-timetable" element={<InstructorTimeTable />} />
-                  <Route path="/instructor-report-card" element={<InstructorReportCard />} />
-                  <Route path="/instructor-hall-pass" element={<InstructorHallPass />} />
-                  <Route path="/instructor-forum" element={<InstructorForum />} />
-                  <Route path="/student-profile" element={<StudentProfile />} />
-                  <Route path="/student-profile/:studentId" element={<StudentProfile />} />
-                  <Route path="/student-profile-new" element={<StudentProfileNew />} />
-                  <Route path="/instructor-course-details/:courseId" element={<InstructorCourseDetails />} />
-                  <Route path="/instructor-video-conference/:courseId" element={<InstructorVideoConference />} />
-                  <Route path="/student-find-tutor" element={<StudentFindTutor />} />
-                  <Route path="/student-courses" element={<StudentCourses />} />
-                  <Route path="/student-schedule" element={<StudentSchedule />} />
-                  <Route path="/student-messages" element={<StudentMessages />} />
-                  <Route path="/student-video-conference/:courseId" element={<StudentVideoConference />} />
-                  <Route path="/student-assignments" element={<StudentAssignments />} />
-                  <Route path="/instructor-quiz-details/:quizId" element={<InstructorQuizDetails />} />
-                  <Route path="/instructor-level-purchase" element={<InstructorLevelPurchase />} />
-                  {/* Route commented out but code files preserved
-                  <Route path="/student-browse-courses" element={<StudentBrowseCourses />} />
-                  <Route path="/browse-courses" element={<StudentBrowseCourses />} />
-                  */}
-                  <Route path="/student-hall-pass" element={<StudentHallPass />} />
-                  <Route path="/student-report-card" element={<StudentReportCard />} />
-                  <Route path="/student-forum" element={<StudentForum />} />
-                  <Route path="/course/:courseId" element={<CourseDetails />} />
-                  <Route path="/assignment/:assignmentId" element={<AssignmentDetails />} />
-                  <Route 
-                    path="/instructor/messages" 
-                    element={
-                      <ProtectedRoute>
-                        <InstructorMessages />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route path="/love-message" element={<LoveMessage />} />
-                  <Route path="/boardwalk" element={<BoardwalkPage />} />
-                  <Route path="/students" element={<><InstitutionSidebar /><StudentsPage /></>} />
-                  <Route path="/instructors" element={<><InstitutionSidebar /><InstructorsPage /></>} />
-                  <Route path="/manage-instructors" element={<><InstitutionSidebar /><ManageInstructorsPage /></>} />
-                  <Route path="/students-list" element={<><InstitutionSidebar /><StudentsList /></>} />
-                  <Route path="/academic-calendar" element={<><InstitutionSidebar /><AcademicCalendar /></>} />
-                  <Route path="/forum" element={<><InstitutionSidebar /><Forum /></>} />
-                  <Route path="/create-course" element={<><InstitutionSidebar /><CreateCourse /></>} />
-                  <Route path="/create-class" element={<><InstitutionSidebar /><CreateClass /></>} />
-                  <Route path="/manage-classes" element={<><InstitutionSidebar /><ManageClasses /></>} />
-                  <Route path="/noticeboard" element={<><InstitutionSidebar /><NoticeRecipients /></>} />
-                  <Route path="/noticeboard/templates" element={<><InstitutionSidebar /><NoticeTemplates /></>} />
-                  <Route path="/noticeboard/students" element={<><InstitutionSidebar /><NoticeStudents /></>} />
-                  <Route path="/noticeboard/compose" element={<><InstitutionSidebar /><NoticeCompose /></>} />
-                  <Route path="/grades" element={<><InstitutionSidebar /><Grades /></>} />
-                  <Route path="/attendance" element={<><InstitutionSidebar /><Attendance /></>} />
-                  <Route path="/report-card" element={<><InstitutionSidebar /><ReportCard /></>} />
-                  <Route path="/homework-submission" element={<><InstitutionSidebar /><HomeworkSubmission /></>} />
-                  <Route path="/time-table" element={<><InstitutionSidebar /><TimeTable /></>} />
-                  <Route path="/digital-hall-pass" element={<><InstitutionSidebar /><DigitalHallPass /></>} />
-                  <Route path="/form-builder" element={<FormBuilder />} />
-                  <Route path="/institution/:institutionId/forms" element={<><InstitutionSidebar /><Forms /></>} />
-                  <Route path="/institution-profile/:institutionId" element={<InstitutionProfile />} />
-                  <Route path="/institution/:institutionId" element={<InstitutionProfile />} />
-                  <Route path="/student-feed" element={<StudentFeed />} />
-                  <Route path="/instructor-feed" element={<InstructorFeed />} />
-                  <Route path="/feed" element={<StudentFeed />} />
-                  <Route path="/student-view-institution-profile/:institutionId" element={<StudentViewInstitutionProfile />} />
-                  <Route path="/student-wizard" element={<StudentWizard />} />
-                  <Route path="/instructor-wizard" element={<InstructorWizard />} />
-                </Routes>
-              </Router>
+              <SubscriptionProvider>
+                <Router>
+                  <Header />
+                  <Routes>
+                    <Route path="/" element={<LandingPage />} />
+                    <Route path="/instructor-info" element={<InstructorInfo />} />
+                    <Route path="/signup" element={<SignUp />} />
+                    <Route path="/instructor-signup" element={<InstructorSignUp />} />
+                    <Route path="/student-dashboard" element={<StudentDashboard />} />
+                    <Route path="/instructor-dashboard" element={<InstructorDashboard />} />
+                    <Route path="/admin-dashboard" element={<AdminDashboard />} />
+                    <Route path="/institution-dashboard" element={<InstitutionDashboard />} />
+                    <Route path="/institution-dashboard/:institutionId" element={<InstitutionDashboard />} />
+                    <Route path="/instructor-registration" element={<InstructorRegistration />} />
+                    <Route path="/student-registration" element={<StudentRegistration />} />
+                    <Route path="/student-home" element={<StudentHome />} />
+                    <Route path="/instructor-home" element={<InstructorHome />} />
+                    <Route path="/admin-tutors-page" element={<AdminTutorsPage />} />
+                    <Route path="/admin-tutor-registrations-page" element={<AdminTutorRegistrationsPage />} />
+                    <Route path="/admin-manage-tutors-page" element={<AdminManageTutorsPage />} />
+                    <Route path="/admin-students-page" element={<AdminStudentsPage />} />
+                    <Route path="/admin-manage-institutions-page" element={<AdminManageInstitutionsPage />} />
+                    <Route path="/admin-settings-page" element={<AdminSettingsPage />} />
+                    <Route path="/admin-courses" element={<AdminCoursesPage />} />
+                    <Route path="/admin-courses-page" element={<AdminCoursesPage />} />
+                    <Route path="/instructor-create-course" element={<InstructorCreateCourse />} />
+                    <Route path="/instructor-courses" element={<InstructorCourses />} />
+                    <Route path="/instructor-edit-course/:courseId" element={<InstructorEditCourse />} />
+                    <Route path="/instructor-profile" element={<InstructorProfile />} />
+                    <Route path="/instructor-course-students/:courseId" element={<InstructorCourseStudents />} />
+                    <Route path="/instructor-students" element={<InstructorStudents />} />
+                    <Route path="/instructor-payment-options" element={<InstructorPaymentOptions />} />
+                    <Route path="/instructor-timetable" element={<InstructorTimeTable />} />
+                    <Route path="/instructor-report-card" element={<InstructorReportCard />} />
+                    <Route path="/instructor-hall-pass" element={<InstructorHallPass />} />
+                    <Route path="/instructor-forum" element={<InstructorForum />} />
+                    <Route path="/instructor-marketplace" element={<InstructorMarketplace />} />
+                    <Route path="/instructor-marketplace-subscription" element={<InstructorMarketplaceSubscription />} />
+                    <Route path="/instructor-checkout" element={<InstructorCheckout />} />
+                    <Route path="/student-profile" element={<StudentProfile />} />
+                    <Route path="/student-profile/:studentId" element={<StudentProfile />} />
+                    <Route path="/student-profile-new" element={<StudentProfileNew />} />
+                    <Route path="/instructor-course-details/:courseId" element={<InstructorCourseDetails />} />
+                    <Route path="/instructor-video-conference/:courseId" element={<InstructorVideoConference />} />
+                    <Route path="/student-find-tutor" element={<StudentFindTutor />} />
+                    <Route path="/student-courses" element={<StudentCourses />} />
+                    <Route path="/student-schedule" element={<StudentSchedule />} />
+                    <Route path="/student-messages" element={<StudentMessages />} />
+                    <Route path="/student-video-conference/:courseId" element={<StudentVideoConference />} />
+                    <Route path="/student-assignments" element={<StudentAssignments />} />
+                    <Route path="/instructor-quiz-details/:quizId" element={<InstructorQuizDetails />} />
+                    <Route path="/instructor-level-purchase" element={<InstructorLevelPurchase />} />
+                    {/* Route commented out but code files preserved
+                    <Route path="/student-browse-courses" element={<StudentBrowseCourses />} />
+                    <Route path="/browse-courses" element={<StudentBrowseCourses />} />
+                    */}
+                    <Route path="/student-hall-pass" element={<StudentHallPass />} />
+                    <Route path="/student-report-card" element={<StudentReportCard />} />
+                    <Route path="/student-forum" element={<StudentForum />} />
+                    <Route path="/course/:courseId" element={<CourseDetails />} />
+                    <Route path="/assignment/:assignmentId" element={<AssignmentDetails />} />
+                    <Route 
+                      path="/instructor/messages" 
+                      element={
+                        <ProtectedRoute>
+                          <InstructorMessages />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route path="/love-message" element={<LoveMessage />} />
+                    <Route path="/boardwalk" element={<BoardwalkPage />} />
+                    <Route path="/students" element={<><InstitutionSidebar /><StudentsPage /></>} />
+                    <Route path="/instructors" element={<><InstitutionSidebar /><InstructorsPage /></>} />
+                    <Route path="/manage-instructors" element={<><InstitutionSidebar /><ManageInstructorsPage /></>} />
+                    <Route path="/students-list" element={<><InstitutionSidebar /><StudentsList /></>} />
+                    <Route path="/academic-calendar" element={<><InstitutionSidebar /><AcademicCalendar /></>} />
+                    <Route path="/forum" element={<><InstitutionSidebar /><Forum /></>} />
+                    <Route path="/create-course" element={<><InstitutionSidebar /><CreateCourse /></>} />
+                    <Route path="/create-class" element={<><InstitutionSidebar /><CreateClass /></>} />
+                    <Route path="/manage-classes" element={<><InstitutionSidebar /><ManageClasses /></>} />
+                    <Route path="/noticeboard" element={<><InstitutionSidebar /><NoticeRecipients /></>} />
+                    <Route path="/noticeboard/templates" element={<><InstitutionSidebar /><NoticeTemplates /></>} />
+                    <Route path="/noticeboard/students" element={<><InstitutionSidebar /><NoticeStudents /></>} />
+                    <Route path="/noticeboard/compose" element={<><InstitutionSidebar /><NoticeCompose /></>} />
+                    <Route path="/grades" element={<><InstitutionSidebar /><Grades /></>} />
+                    <Route path="/attendance" element={<><InstitutionSidebar /><Attendance /></>} />
+                    <Route path="/report-card" element={<><InstitutionSidebar /><ReportCard /></>} />
+                    <Route path="/homework-submission" element={<><InstitutionSidebar /><HomeworkSubmission /></>} />
+                    <Route path="/time-table" element={<><InstitutionSidebar /><TimeTable /></>} />
+                    <Route path="/digital-hall-pass" element={<><InstitutionSidebar /><DigitalHallPass /></>} />
+                    <Route path="/form-builder" element={<FormBuilder />} />
+                    <Route path="/institution/:institutionId/forms" element={<><InstitutionSidebar /><Forms /></>} />
+                    <Route path="/institution-profile/:institutionId" element={<InstitutionProfile />} />
+                    <Route path="/institution/:institutionId" element={<InstitutionProfile />} />
+                    <Route path="/student-feed" element={<BoardwalkPage />} />
+                    <Route path="/instructor-feed" element={<BoardwalkPage />} />
+                    <Route path="/feed" element={<BoardwalkPage />} />
+                    <Route path="/student-view-institution-profile/:institutionId" element={<StudentViewInstitutionProfile />} />
+                    <Route path="/student-wizard" element={<StudentWizard />} />
+                    <Route path="/instructor-wizard" element={<InstructorWizard />} />
+                  </Routes>
+                </Router>
+              </SubscriptionProvider>
             </SettingsProvider>
           </StudentProvider>
         </TutorProvider>

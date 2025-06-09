@@ -68,6 +68,8 @@ import {
 } from 'react-icons/fa';
 
 import InstructorSidebar from '../components/InstructorSidebar';
+import { useSubscription } from '../contexts/subscriptionContext';
+import VerifiedBadge from '../components/VerifiedBadge';
 import verifiedIcon from '../icons/verified.webm';
 
 const ENHANCED_THEME_COLORS = {
@@ -344,6 +346,7 @@ const StatCard = ({ icon, label, value, color }) => (
 const InstructorProfile = () => {
   const navigate = useNavigate();
   const toast = useToast();
+  const { hasActiveRedMark, getCurrentUserId } = useSubscription();
   const cardBg = useColorModeValue(ENHANCED_THEME_COLORS.cardBackground, ENHANCED_THEME_COLORS.cardBackground);
   const textColor = useColorModeValue(ENHANCED_THEME_COLORS.text.primary, ENHANCED_THEME_COLORS.text.primary);
 
@@ -369,6 +372,7 @@ const InstructorProfile = () => {
 
   // State for profile data
   const [profile, setProfile] = useState({
+    id: '',
     name: '',
     teacherCode: '',
     title: '',
@@ -388,6 +392,14 @@ const InstructorProfile = () => {
     level: null,  // NULL if not purchased
     red_mark: null,  // NULL if not purchased
   });
+
+  // Generate instructor ID based on profile data
+  const getInstructorId = () => {
+    if (profile.id) return profile.id;
+    if (profile.teacherCode) return `instructor-${profile.teacherCode.toLowerCase()}`;
+    if (profile.name) return `instructor-${profile.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}`;
+    return null;
+  };
 
   // Modal controls
   const {
@@ -467,6 +479,7 @@ const InstructorProfile = () => {
         
         // Transform API data to match component structure
         const transformedProfile = {
+          id: data.profile.id || '',
           name: data.instructor.name || 'Unknown Instructor',
           teacherCode: data.profile.teacherCode || 'IS000000',
           title: data.profile.title || 'Subject Matter Expert',
@@ -1279,43 +1292,13 @@ const InstructorProfile = () => {
                           alignItems="center"
                         >
                           {profile.name}
-                          {/* Only show verification mark if red_mark is purchased (true) */}
-                          {profile.red_mark === true && (
-                            <Tooltip 
-                              label="Verified Dashboarder" 
-                              placement="top" 
-                              hasArrow 
-                              bg="#640101"
-                              color="white"
-                              ml={2}
-                            >
-                              <Flex 
-                                position="relative" 
-                                alignItems="center" 
-                                justifyContent="center"
-                                ml={2}
-                              >
-                                <video 
-                                  width="40" 
-                                  height="40" 
-                                  autoPlay 
-                                  loop 
-                                  muted 
-                                  playsInline
-                                  style={{
-                                    borderRadius: '50%',
-                                    border: '1px solid',
-                                    borderColor: '#640101',
-                                    animationDuration: '3s', 
-                                    animationTimingFunction: 'ease-in-out', 
-                                    objectFit: 'cover'
-                                  }}
-                                >
-                                  <source src={verifiedIcon} type="video/webm" />
-                                </video>
-                              </Flex>
-                            </Tooltip>
-                          )}
+                          {/* Red Mark Verified Badge */}
+                          <VerifiedBadge 
+                            instructorId={getInstructorId()} 
+                            size="md" 
+                            variant="shield" 
+                            showTooltip={true}
+                          />
                         </Heading>
                       </HStack>
                       <IconButton
