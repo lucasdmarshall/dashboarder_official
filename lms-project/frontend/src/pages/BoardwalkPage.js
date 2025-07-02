@@ -29,6 +29,7 @@ import { FaImage, FaVideo, FaEllipsisH, FaThumbsUp, FaHeart, FaTimes, FaCheck, F
 import PostModal from '../components/PostModal';
 import MediaUploadModal from '../components/MediaUploadModal';
 import { motion, useAnimation, AnimatePresence } from 'framer-motion';
+import { safeGetJSON, safeSetJSON, checkStorageQuota } from '../utils/storageUtils';
 
 const API_URL = 'http://localhost:5001/api';
 
@@ -97,28 +98,15 @@ class FeedAlgorithm {
   loadUserInteractions() {
     try {
       const key = `boardwalk_interactions_${this.userId}`;
-      const stored = localStorage.getItem(key);
-      
-      if (!stored) {
-        return {
-          liked: [],
-          skipped: [],
-          viewTime: {},
-          categories: {},
-          institutions: {}
-        };
-      }
-      
-      const parsed = JSON.parse(stored);
-      
-      // Validate the structure and provide defaults for missing properties
-      return {
-        liked: Array.isArray(parsed.liked) ? parsed.liked : [],
-        skipped: Array.isArray(parsed.skipped) ? parsed.skipped : [],
-        viewTime: typeof parsed.viewTime === 'object' && parsed.viewTime !== null ? parsed.viewTime : {},
-        categories: typeof parsed.categories === 'object' && parsed.categories !== null ? parsed.categories : {},
-        institutions: typeof parsed.institutions === 'object' && parsed.institutions !== null ? parsed.institutions : {}
+      const defaultData = {
+        liked: [],
+        skipped: [],
+        viewTime: {},
+        categories: {},
+        institutions: {}
       };
+      
+      return safeGetJSON(key, defaultData);
     } catch (error) {
       console.warn('Error parsing stored user interactions:', error);
       // Return clean default structure if parsing fails
@@ -141,51 +129,116 @@ class FeedAlgorithm {
       const key = `boardwalk_interactions_${this.userId}`;
       const dataToSave = JSON.stringify(this.userInteractions);
       
-      // Check if data size is reasonable (less than 1MB)
-      if (dataToSave.length > 1000000) {
+      // Check if data size is reasonable (reduced from 1MB to 500KB)
+      if (dataToSave.length > 500000) {
         console.warn('User interactions data too large, performing aggressive cleanup');
         this.aggressiveCleanup();
       }
       
-      localStorage.setItem(key, JSON.stringify(this.userInteractions));
-    } catch (error) {
-      if (error.name === 'QuotaExceededError') {
-        console.warn('LocalStorage quota exceeded, clearing old interactions');
-        this.clearOldInteractions();
-        // Try again with cleaned data
-        try {
-          const key = `boardwalk_interactions_${this.userId}`;
-          localStorage.setItem(key, JSON.stringify(this.userInteractions));
-        } catch (secondError) {
-          console.error('Still unable to save after cleanup:', secondError);
-        }
-      } else {
-        console.error('Error saving user interactions:', error);
+      // Use the safe utility function to store data
+      if (!safeSetJSON(key, this.userInteractions)) {
+        // If saving fails even with the safe function, do emergency cleanup
+        this.emergencyCleanup();
+        safeSetJSON(key, this.userInteractions);
       }
+    } catch (error) {
+      console.error('Error saving user interactions:', error);
     }
   }
 
-  // Cleanup old interactions (keep only last 30 days and limit counts)
+  // Emergency cleanup - much more aggressive than regular cleanup
+  emergencyCleanup() {
+    // Keep only last 20 likes and 10 skips
+    this.userInteractions.liked = this.userInteractions.liked.slice(-20);
+    this.userInteractions.skipped = this.userInteractions.skipped.slice(-10);
+    
+    // Clear view time data completely
+    this.userInteractions.viewTime = {};
+    
+    // Drastically reduce category and institution data
+    Object.keys(this.userInteractions.categories).forEach(category => {
+      const current = this.userInteractions.categories[category];
+      this.userInteractions.categories[category] = {
+        likes: Math.min(current.likes, 5),
+        skips: Math.min(current.skips, 5)
+      };
+    });
+    
+    Object.keys(this.userInteractions.institutions).forEach(instId => {
+      const current = this.userInteractions.institutions[instId];
+      this.userInteractions.institutions[instId] = {
+        likes: Math.min(current.likes, 5),
+        skips: Math.min(current.skips, 5)
+      };
+    });
+  }
+
+  // Clear all interactions for this user
+  clearAllInteractions() {
+    this.userInteractions = {
+      liked: [],
+      skipped: [],
+      viewTime: {},
+      categories: {},
+      institutions: {}
+    };
+    
+    // Also remove from localStorage
+    const key = `boardwalk_interactions_${this.userId}`;
+    try {
+      localStorage.removeItem(key);
+    } catch (e) {
+      console.error('Error removing item from localStorage:', e);
+    }
+  }
+
+  // Clear non-essential localStorage items as last resort
+  clearNonEssentialStorage() {
+    try {
+      // Keep only authentication and critical user data
+      const authToken = localStorage.getItem('authToken');
+      const userId = localStorage.getItem('userId');
+      const userName = localStorage.getItem('userName');
+      const userRole = localStorage.getItem('userRole');
+      const institutionId = localStorage.getItem('institutionId');
+      
+      // Clear everything
+      localStorage.clear();
+      
+      // Restore critical items
+      if (authToken) localStorage.setItem('authToken', authToken);
+      if (userId) localStorage.setItem('userId', userId);
+      if (userName) localStorage.setItem('userName', userName);
+      if (userRole) localStorage.setItem('userRole', userRole);
+      if (institutionId) localStorage.setItem('institutionId', institutionId);
+      
+      console.warn('Cleared all non-essential localStorage data due to quota issues');
+    } catch (e) {
+      console.error('Error during emergency localStorage cleanup:', e);
+    }
+  }
+
+  // Cleanup old interactions (keep only last 14 days instead of 30)
   cleanupOldInteractions() {
-    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    const fourteenDaysAgo = Date.now() - (14 * 24 * 60 * 60 * 1000);
     
-    // Limit liked interactions to last 100
-    if (this.userInteractions.liked.length > 100) {
+    // Limit liked interactions to last 50 (was 100)
+    if (this.userInteractions.liked.length > 50) {
       this.userInteractions.liked = this.userInteractions.liked
-        .filter(interaction => interaction.timestamp > thirtyDaysAgo)
-        .slice(-100); // Keep only last 100
+        .filter(interaction => interaction.timestamp > fourteenDaysAgo)
+        .slice(-50); // Keep only last 50
     }
     
-    // Limit skipped interactions to last 50 (less important than likes)
-    if (this.userInteractions.skipped.length > 50) {
+    // Limit skipped interactions to last 25 (was 50)
+    if (this.userInteractions.skipped.length > 25) {
       this.userInteractions.skipped = this.userInteractions.skipped
-        .filter(interaction => interaction.timestamp > thirtyDaysAgo)
-        .slice(-50);
+        .filter(interaction => interaction.timestamp > fourteenDaysAgo)
+        .slice(-25);
     }
     
-    // Clean up view time data older than 30 days
+    // Clean up view time data older than 14 days (was 30)
     Object.keys(this.userInteractions.viewTime).forEach(postId => {
-      if (this.userInteractions.viewTime[postId].timestamp < thirtyDaysAgo) {
+      if (this.userInteractions.viewTime[postId].timestamp < fourteenDaysAgo) {
         delete this.userInteractions.viewTime[postId];
       }
     });
@@ -193,9 +246,9 @@ class FeedAlgorithm {
 
   // Aggressive cleanup when data is too large
   aggressiveCleanup() {
-    // Keep only last 50 likes and 25 skips
-    this.userInteractions.liked = this.userInteractions.liked.slice(-50);
-    this.userInteractions.skipped = this.userInteractions.skipped.slice(-25);
+    // Keep only last 30 likes and 15 skips (was 50 and 25)
+    this.userInteractions.liked = this.userInteractions.liked.slice(-30);
+    this.userInteractions.skipped = this.userInteractions.skipped.slice(-15);
     
     // Clear view time data
     this.userInteractions.viewTime = {};
@@ -204,29 +257,18 @@ class FeedAlgorithm {
     Object.keys(this.userInteractions.categories).forEach(category => {
       const current = this.userInteractions.categories[category];
       this.userInteractions.categories[category] = {
-        likes: Math.min(current.likes, 10),
-        skips: Math.min(current.skips, 10)
+        likes: Math.min(current.likes, 5), // was 10
+        skips: Math.min(current.skips, 5)  // was 10
       };
     });
     
     Object.keys(this.userInteractions.institutions).forEach(instId => {
       const current = this.userInteractions.institutions[instId];
       this.userInteractions.institutions[instId] = {
-        likes: Math.min(current.likes, 10),
-        skips: Math.min(current.skips, 10)
+        likes: Math.min(current.likes, 5), // was 10
+        skips: Math.min(current.skips, 5)  // was 10
       };
     });
-  }
-
-  // Clear all old interactions and start fresh
-  clearOldInteractions() {
-    this.userInteractions = {
-      liked: [],
-      skipped: [],
-      viewTime: {},
-      categories: {},
-      institutions: {}
-    };
   }
 
   // Calculate user preferences based on interaction history
@@ -472,9 +514,27 @@ const BoardwalkPage = () => {
 
   // Initialize user and fetch data
   useEffect(() => {
+    // Check and clean localStorage on startup if needed
+    checkLocalStorageQuota();
     initializeUser();
     fetchPosts();
   }, []);
+
+  // Check localStorage quota and clean if needed
+  const checkLocalStorageQuota = () => {
+    // Use the utility function to check and clean storage if needed
+    const isStorageAvailable = checkStorageQuota();
+    
+    if (!isStorageAvailable) {
+      toast({
+        title: "Storage Warning",
+        description: "Your browser storage is full. Some features may not work properly.",
+        status: "warning",
+        duration: 5000,
+        isClosable: true
+      });
+    }
+  };
 
   // Initialize personalized feed when user and posts are loaded
   useEffect(() => {

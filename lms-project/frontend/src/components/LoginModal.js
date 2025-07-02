@@ -18,6 +18,7 @@ import {
   Flex
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
+import { safeSetItem, checkStorageQuota } from '../utils/storageUtils';
 
 // API base URL - updated to match our FastAPI backend
 const API_URL = 'http://localhost:5001/api';
@@ -83,17 +84,35 @@ const LoginModal = ({ isOpen, onClose }) => {
       
       const userData = await userResponse.json();
       
-      // Store token and user info in localStorage
-      localStorage.setItem('authToken', token);
-      localStorage.setItem('userRole', userData.role);
-      localStorage.setItem('userName', userData.name);
-      localStorage.setItem('userId', userData.id);
+      // Ensure we have space in localStorage before storing data
+      if (!checkStorageQuota()) {
+        throw new Error('Unable to store login data due to storage limitations. Please clear your browser cache and try again.');
+      }
+      
+      // Store token and user info in localStorage using safe methods
+      let storageSuccess = true;
+      storageSuccess = storageSuccess && safeSetItem('authToken', token);
+      storageSuccess = storageSuccess && safeSetItem('userRole', userData.role);
+      storageSuccess = storageSuccess && safeSetItem('userName', userData.name);
+      storageSuccess = storageSuccess && safeSetItem('userId', userData.id);
       
       // Store institutionId if user is an institution
       if (userData.role === 'institution') {
         // Use institutionId from user object if available, otherwise fallback to user.id
         const institutionIdToStore = userData.institutionId || userData.id;
-        localStorage.setItem('institutionId', institutionIdToStore);
+        storageSuccess = storageSuccess && safeSetItem('institutionId', institutionIdToStore);
+      }
+      
+      if (!storageSuccess) {
+        // If we can't store, we'll continue anyway since the token is in memory
+        // and the session will work until the page is refreshed
+        toast({
+          title: "Storage Warning",
+          description: "Login successful but session data couldn't be saved. Your session may end when you close the browser.",
+          status: "warning",
+          duration: 5000,
+          isClosable: true
+        });
       }
       
       // Show success message with personalized welcome
